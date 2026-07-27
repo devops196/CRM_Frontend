@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useCRMState } from '../contexts/CRMStateContext';
 import type { Customer, Lead, Task } from '../contexts/CRMStateContext';
 import { useAuth } from '../contexts/AuthContext';
-import { Trash2, ShieldAlert, Sparkles, Mail, Phone, MessageSquare, Key, Save, Settings2, Play, ArrowRight, ArrowLeft, UserPlus, Users } from 'lucide-react';
+import { Trash2, Sparkles, Mail, Phone, MessageSquare, Play, ArrowRight, ArrowLeft, UserPlus, Users } from 'lucide-react';
 import ProfileCard from '../components/profile/ProfileCard';
 import TeamTable from '../components/team/TeamTable';
 import AddUserModal from '../components/team/AddUserModal';
 import { useTeam } from '../hooks/useTeam';
 import { AccountLookup } from '../components/profile/AccountLookup';
-import { LoginAttemptsTable } from '../components/auth/LoginAttemptsTable';
 
 /* ==========================================================================
    COMPONENT: CUSTOMERS DIRECTORY
@@ -516,13 +515,25 @@ export const TaskList: React.FC = () => {
   );
 };
 
+export const TeamLookupView: React.FC = () => {
+  return (
+    <div style={{ maxWidth: '850px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
+      <div>
+        <h2 style={{ margin: 0, fontWeight: 700, fontSize: '1.75rem' }}>Team Lookup</h2>
+        <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+          Search organization team member profiles, check active subscription status, plan limits, and credit validity.
+        </p>
+      </div>
+      <AccountLookup />
+    </div>
+  );
+};
+
 /* ==========================================================================
    COMPONENT: SETTINGS PANEL
    ========================================================================== */
 export const SettingsPanel: React.FC = () => {
-  const { user, authUser } = useAuth();
-  const [workspaceName, setWorkspaceName] = useState(user?.orgName || 'QuickAds');
-  const [apiKey, setApiKey] = useState('ag_live_782A9dB31e2C0b42fF1d0092f3987d65c7198');
+  const { authUser } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Team management hook
@@ -535,58 +546,34 @@ export const SettingsPanel: React.FC = () => {
     }
   }, [authUser, initTeam]);
 
-  const handleGenerateApiKey = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let key = 'ag_live_';
-    for (let i = 0; i < 32; i++) {
-      key += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setApiKey(key);
-    alert('Generated new Production API Key. Enforced SSO token rotation logs.');
-  };
-
   // The owner's team member ID for the "You" badge
   const ownerTeamId = authUser ? `tm_owner_${authUser.uid}` : undefined;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', fontFamily: 'var(--font-sans)' }}>
 
-      {/* ── SECTION: User Profile & Account Lookup ───────────────────────── */}
-      <div className="grid-2" style={{ alignItems: 'stretch' }}>
-        {/* Profile Card */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ marginBottom: '1rem' }}>
-            <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Your Profile</h3>
-            <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Authenticated via Google — profile data is sourced directly from your account.
-            </p>
-          </div>
-
-          {authUser ? (
-            <ProfileCard authUser={authUser} />
-          ) : (
-            <div
-              className="card"
-              style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem', flex: 1 }}
-            >
-              Profile not available. Please sign in with Google to view your profile.
-            </div>
-          )}
+      {/* ── SECTION 1: Your Profile ───────────────────────── */}
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <div style={{ marginBottom: '1rem' }}>
+          <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Your Profile</h3>
+          <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            Authenticated via Google — profile data is sourced directly from your account.
+          </p>
         </div>
 
-        {/* Directory lookup card */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ marginBottom: '1rem' }}>
-            <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Directory Search</h3>
-            <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Look up active subscription status, plan limits, and credit validity.
-            </p>
+        {authUser ? (
+          <ProfileCard authUser={authUser} />
+        ) : (
+          <div
+            className="card"
+            style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}
+          >
+            Profile not available. Please sign in with Google to view your profile.
           </div>
-          <AccountLookup />
-        </div>
+        )}
       </div>
 
-      {/* ── SECTION: Team Management ─────────────────────────────────────── */}
+      {/* ── SECTION 2: Team ─────────────────────────────────────── */}
       <div>
         {/* Section header */}
         <div
@@ -624,122 +611,6 @@ export const SettingsPanel: React.FC = () => {
         {/* Team members table */}
         <TeamTable members={members} ownerId={ownerTeamId} />
       </div>
-
-      {/* ── SECTION: Workspace Configuration ─────────────────────────────── */}
-      <div className="grid-12" style={{ gap: '1.5rem' }}>
-        {/* Brand Workspace Profile Settings */}
-        <div className="card" style={{ gridColumn: 'span 6', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Workspace Configuration</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-            
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Organization Workspace Title</label>
-              <input
-                type="text"
-                className="form-input"
-                value={workspaceName}
-                onChange={(e) => setWorkspaceName(e.target.value)}
-              />
-            </div>
-
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Workspace Subdomain URL</label>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <input
-                  type="text"
-                  readOnly
-                  className="form-input"
-                  value={workspaceName.toLowerCase().replace(/\s+/g, '-')}
-                  style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0, backgroundColor: 'var(--bg-sidebar)', width: '60%' }}
-                />
-                <span style={{
-                  backgroundColor: 'var(--border)',
-                  color: 'var(--text-secondary)',
-                  padding: '0.65rem 0.9rem',
-                  border: '1px solid var(--border)',
-                  borderLeft: 'none',
-                  borderTopRightRadius: 'var(--radius-sm)',
-                  borderBottomRightRadius: 'var(--radius-sm)',
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                  width: '40%'
-                }}>
-                  .antigravity.crm
-                </span>
-              </div>
-            </div>
-
-            <button onClick={() => alert('Workspace profiles saved')} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center' }}>
-              <Save size={14} /> Update Workspace Profiles
-            </button>
-          </div>
-        </div>
-
-        {/* Developer API Key panel */}
-        <div className="card" style={{ gridColumn: 'span 6', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <h3 style={{ margin: 0, fontSize: '1.15rem' }}>SaaS Developer API Tokens</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-            
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Production Workspace API Token</label>
-              <div style={{ position: 'relative' }}>
-                <Key size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input
-                  type="text"
-                  readOnly
-                  className="form-input text-ellipsis"
-                  value={apiKey}
-                  style={{ paddingLeft: '2.25rem', fontFamily: 'var(--font-mono)', fontSize: '0.75rem', backgroundColor: 'var(--bg-sidebar)' }}
-                />
-              </div>
-            </div>
-
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
-              <ShieldAlert size={14} style={{ color: 'var(--warning)', flexShrink: 0 }} /> Keep this key safe. Do not publish it in git repositories.
-            </div>
-
-            <button onClick={handleGenerateApiKey} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center' }}>
-              <Settings2 size={14} /> Rotate API Key &amp; Revoke Old Tokens
-            </button>
-          </div>
-        </div>
-
-        {/* Integration checklist logs */}
-        <div className="card" style={{ gridColumn: 'span 12', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Active Software Integrations</h3>
-          
-          <div className="grid-3" style={{ gap: '1rem' }}>
-            {[
-              { name: 'Stripe Billing System', desc: 'Auto-sync receipts, invoicing workflows.', status: 'Active', icon: '💳' },
-              { name: 'Slack Messaging Link', desc: 'Post telemetry conversions & SLA critical breaches.', status: 'Active', icon: '💬' },
-              { name: 'Google Workspace Calendar', desc: 'Sync customer syncs, follow-ups, and tasks.', status: 'Active', icon: '📅' },
-              { name: 'Microsoft 365 Outlook', desc: 'Read communication histories & compose folders.', status: 'Connected', icon: '📧' },
-              { name: 'Razorpay Gateway India', desc: 'Localized billing support integrations.', status: 'Active', icon: '💰' },
-              { name: 'Claude AI API Integration', desc: 'Pinecone indices vector search for call timelines.', status: 'Active', icon: '🧠' }
-            ].map((int, idx) => (
-              <div key={idx} style={{
-                padding: '1rem',
-                backgroundColor: 'var(--bg-sidebar)',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '1rem'
-              }}>
-                <div style={{ fontSize: '2rem' }}>{int.icon}</div>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{int.name}</div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>{int.desc}</div>
-                  <span className="badge badge-success" style={{ fontSize: '0.6rem', padding: '1px 5px' }}>{int.status}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ── SECTION: Mandatory Login Attempts Audit Trail ────────────────── */}
-      <LoginAttemptsTable />
 
       {/* Add User Modal */}
       <AddUserModal

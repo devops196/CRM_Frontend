@@ -8,7 +8,7 @@ import { AuthPages } from './views/AuthPages';
 import { SuperAdminDashboard } from './views/SuperAdminDashboard';
 import { AdminDashboard } from './views/AdminDashboard';
 import { CustomerPortal } from './views/CustomerPortal';
-import { CustomersList, LeadKanban, CommunicationHub, TaskList, SettingsPanel } from './views/CRMMicroModules';
+import { CustomersList, LeadKanban, CommunicationHub, TaskList, SettingsPanel, TeamLookupView } from './views/CRMMicroModules';
 
 // Components
 import { FloatingAIAssistant } from './components/FloatingAIAssistant';
@@ -18,18 +18,11 @@ import MemberAvatar from './components/team/MemberAvatar';
 // Lucide Icons
 import {
   Zap,
-  Building2,
   Users,
-  GitCommit,
-  Mail,
-  CheckSquare,
-  Settings,
-  Shield,
   Search,
   Sun,
   Moon,
-  LogOut,
-  Menu
+  LogOut
 } from 'lucide-react';
 
 const DashboardShell: React.FC<{
@@ -70,6 +63,9 @@ const DashboardShell: React.FC<{
     const results: typeof searchResults = [];
 
     // Commands matches
+    if ('team lookup account search'.includes(query)) {
+      results.push({ category: 'Navigation', text: 'Open Team Lookup', action: () => { setCurrentView('team_lookup'); setCommandPaletteOpen(false); } });
+    }
     if ('reset database'.includes(query)) {
       results.push({ category: 'Command', text: 'Reset mock CRM database to seed data', action: () => { resetDatabase(); alert('Database reset!'); window.location.reload(); } });
     }
@@ -78,9 +74,6 @@ const DashboardShell: React.FC<{
     }
     if ('go to settings'.includes(query)) {
       results.push({ category: 'Navigation', text: 'Go to workspace API Settings', action: () => { setCurrentView('settings'); setCommandPaletteOpen(false); } });
-    }
-    if ('go to workflows automation'.includes(query)) {
-      results.push({ category: 'Navigation', text: 'Go to Visual Workflow Builder', action: () => { setCurrentView('workflows'); setCommandPaletteOpen(false); } });
     }
 
     // CRM Searches (simulated)
@@ -102,53 +95,16 @@ const DashboardShell: React.FC<{
     setCurrentView('auth_login');
   };
 
-  // Navigations lists based on User Roles
+  // Sidebar options
   const renderSidebarNavs = () => {
-    if (user?.role === 'super_admin') {
-      return (
-        <>
-          <button onClick={() => { setCurrentView('super_admin_dashboard'); setMobileMenuOpen(false); }} className={`tab-btn ${currentView === 'super_admin_dashboard' ? 'active' : ''}`} style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.8rem 1rem', width: '100%', borderBottom: 'none' }}>
-            <Shield size={16} /> Super Admin Home
-          </button>
-          <button onClick={() => { setCurrentView('workflows'); setMobileMenuOpen(false); }} className={`tab-btn ${currentView === 'workflows' ? 'active' : ''}`} style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.8rem 1rem', width: '100%', borderBottom: 'none' }}>
-            <GitCommit size={16} /> System Workflows
-          </button>
-        </>
-      );
-    }
-
-    if (user?.role === 'customer') {
-      return (
-        <>
-          <button onClick={() => { setCurrentView('customer_portal'); setMobileMenuOpen(false); }} className={`tab-btn ${currentView === 'customer_portal' ? 'active' : ''}`} style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.8rem 1rem', width: '100%', borderBottom: 'none' }}>
-            <Building2 size={16} /> Client Hub Home
-          </button>
-        </>
-      );
-    }
-
-    // Standard workspace CRM accounts
     return (
-      <>
-        <button onClick={() => { setCurrentView('admin_dashboard'); setMobileMenuOpen(false); }} className={`tab-btn ${currentView === 'admin_dashboard' ? 'active' : ''}`} style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.8rem 1rem', width: '100%', borderBottom: 'none' }}>
-          <Building2 size={16} /> Workspace Overview
-        </button>
-        <button onClick={() => { setCurrentView('customers'); setMobileMenuOpen(false); }} className={`tab-btn ${currentView === 'customers' ? 'active' : ''}`} style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.8rem 1rem', width: '100%', borderBottom: 'none' }}>
-          <Users size={16} /> Customer Directory
-        </button>
-        <button onClick={() => { setCurrentView('leads'); setMobileMenuOpen(false); }} className={`tab-btn ${currentView === 'leads' ? 'active' : ''}`} style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.8rem 1rem', width: '100%', borderBottom: 'none' }}>
-          <GitCommit size={16} /> Kanban Pipeline
-        </button>
-        <button onClick={() => { setCurrentView('comms'); setMobileMenuOpen(false); }} className={`tab-btn ${currentView === 'comms' ? 'active' : ''}`} style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.8rem 1rem', width: '100%', borderBottom: 'none' }}>
-          <Mail size={16} /> Comms Loggers
-        </button>
-        <button onClick={() => { setCurrentView('workflows'); setMobileMenuOpen(false); }} className={`tab-btn ${currentView === 'workflows' ? 'active' : ''}`} style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.8rem 1rem', width: '100%', borderBottom: 'none' }}>
-          <Zap size={16} /> Automation Builder
-        </button>
-        <button onClick={() => { setCurrentView('tasks'); setMobileMenuOpen(false); }} className={`tab-btn ${currentView === 'tasks' ? 'active' : ''}`} style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.8rem 1rem', width: '100%', borderBottom: 'none' }}>
-          <CheckSquare size={16} /> Task Checklist
-        </button>
-      </>
+      <button
+        onClick={() => { setCurrentView('team_lookup'); setMobileMenuOpen(false); }}
+        className={`tab-btn ${currentView === 'team_lookup' ? 'active' : ''}`}
+        style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.8rem 1rem', width: '100%', borderBottom: 'none' }}
+      >
+        <Users size={16} /> Team Lookup
+      </button>
     );
   };
 
@@ -251,6 +207,7 @@ const DashboardShell: React.FC<{
 
         {/* Dashboard Body Page router */}
         <main className="page-body">
+          {currentView === 'team_lookup' && <TeamLookupView />}
           {currentView === 'super_admin_dashboard' && <SuperAdminDashboard />}
           {currentView === 'admin_dashboard' && <AdminDashboard />}
           {currentView === 'customer_portal' && <CustomerPortal />}
@@ -332,10 +289,10 @@ const DashboardShell: React.FC<{
 const AppRouter: React.FC = () => {
   const { isLoggedIn } = useAuth();
   const [currentView, setCurrentView] = useState('auth_login');
-  // If the user is already logged in (via localStorage session), jump straight to the dashboard
+  // If the user is already logged in (via localStorage session), jump straight to the opening page
   useEffect(() => {
     if (isLoggedIn && currentView.startsWith('auth_')) {
-      setCurrentView('admin_dashboard');
+      setCurrentView('team_lookup');
     }
   }, [isLoggedIn, currentView]);
 
@@ -344,7 +301,7 @@ const AppRouter: React.FC = () => {
       {/* Main Router Logic */}
       {currentView.startsWith('auth_') ? (
         <AuthPages
-          onAuthSuccess={() => setCurrentView('admin_dashboard')}
+          onAuthSuccess={() => setCurrentView('team_lookup')}
         />
       ) : (
         <DashboardShell currentView={currentView} setCurrentView={setCurrentView} />

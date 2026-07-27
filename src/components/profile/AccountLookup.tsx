@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, User, CheckCircle, XCircle, CreditCard, Calendar, Zap, Loader2, AlertTriangle, TrendingUp } from 'lucide-react';
+import { Search, XCircle, Loader2, AlertTriangle, Zap } from 'lucide-react';
 
 // ─────────────────────────────────────────────
 // Mock Data
