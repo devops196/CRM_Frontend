@@ -11,6 +11,7 @@ import {
   simulateDevLogin,
 } from '../services/auth.service';
 import { resolveDisplayName, getInitials } from '../utils/formatUserName';
+import { fetchTeamMembersFromApi } from '../services/team.service';
 
 // ─────────────────────────────────────────────────────────────
 // Legacy types kept for compatibility with existing CRM modules
@@ -64,8 +65,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 /**
- * Maps an AuthUser (Google) to the legacy User shape expected by
- * existing components like the sidebar, header badge, etc.
+ * Maps an AuthUser to the legacy User shape.
+ * avatar is always derived from initials (sidebar shows initials, not photo from cache)
  */
 const mapToLegacyUser = (authUser: AuthUser): User => ({
   id: authUser.uid,
@@ -74,7 +75,9 @@ const mapToLegacyUser = (authUser: AuthUser): User => ({
   orgId: 'org_quickads',
   orgName: authUser.orgName,
   role: 'admin',
-  avatar: authUser.photoURL || authUser.initials,
+  // Never use cached photoURL from localStorage as avatar — use initials only
+  // The sidebar avatar reads from DB via ProfileCard separately
+  avatar: authUser.initials,
   googleUser: authUser,
 });
 
@@ -83,19 +86,82 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
-  // Restore session from localStorage on mount
+  /**
+   * Fetches the user's live record from the DB and syncs it into state.
+   * This is the ONLY source of truth for credits, picture, role, and status.
+   * localStorage only stores identity fields (uid, email, name, initials, memberSince).
+   */
+  const syncWithDb = useCallback(async (baseUser: AuthUser) => {
+    try {
+      const dbMembers = await fetchTeamMembersFromApi({ search: baseUser.email });
+      const found =
+        dbMembers.find((m: any) => m.email.toLowerCase() === baseUser.email.toLowerCase()) ||
+        (dbMembers.length > 0 ? dbMembers[0] : null);
+
+      if (found) {
+        // All mutable fields come from DB — never from localStorage cache
+        const dbPhotoURL = found.photoURL && found.photoURL.trim() !== '' ? found.photoURL : undefined;
+        const syncedUser: AuthUser = {
+          // Keep identity fields from the base session
+          uid: baseUser.uid,
+          email: baseUser.email,
+          initials: getInitials(found.name || baseUser.name),
+          memberSince: baseUser.memberSince,
+          orgName: baseUser.orgName,
+          // All of these come ONLY from the DB — never from localStorage
+          name: found.name,
+          photoURL: dbPhotoURL,
+          role: (found.role === 'Admin' ? 'Admin' : 'Customer') as AuthUser['role'],
+          status: (found.accountStatus === 'Active' ? 'Active' : 'Inactive') as AuthUser['status'],
+          creditsAvailable: found.creditsAvailable,
+          totalCredits: found.totalCredits,
+        };
+        // Save only identity fields back to localStorage (strip mutable DB fields)
+        saveIdentitySession(syncedUser);
+        setAuthUser(syncedUser);
+        setUser(mapToLegacyUser(syncedUser));
+        setIsLoggedIn(true);
+        return syncedUser;
+      }
+    } catch (err) {
+      console.error('Failed to sync auth user with database:', err);
+    }
+    // DB unavailable — at least restore the session identity
+    setAuthUser(baseUser);
+    setUser(mapToLegacyUser(baseUser));
+    setIsLoggedIn(true);
+    return baseUser;
+  }, []);
+
+  // On mount — restore session identity from localStorage, then immediately fetch fresh DB data
   useEffect(() => {
     const savedUser = loadUserSession();
     if (savedUser) {
-      setAuthUser(savedUser);
-      setUser(mapToLegacyUser(savedUser));
+      // Set identity only first (no stale credits/photo flash)
+      const identityOnly: AuthUser = {
+        uid: savedUser.uid,
+        email: savedUser.email,
+        name: savedUser.name,
+        initials: savedUser.initials,
+        memberSince: savedUser.memberSince,
+        orgName: savedUser.orgName,
+        role: savedUser.role,
+        status: savedUser.status,
+        // Deliberately omit photoURL, creditsAvailable, totalCredits
+        // They will be filled in by syncWithDb below
+      };
+      setAuthUser(identityOnly);
+      setUser(mapToLegacyUser(identityOnly));
       setIsLoggedIn(true);
+
+      // Immediately fetch fresh data from DB
+      syncWithDb(savedUser);
     }
-  }, []);
+  }, [syncWithDb]);
 
   // Initialize Google Identity Services script
   useEffect(() => {
-    if (GOOGLE_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID') return;
+    if ((GOOGLE_CLIENT_ID as string) === 'YOUR_GOOGLE_CLIENT_ID') return;
 
     const initGsi = () => {
       if (window.google?.accounts?.id) {
@@ -108,11 +174,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    // If the GSI script is already loaded
     if (window.google?.accounts?.id) {
       initGsi();
     } else {
-      // Wait for the script to load
       const script = document.getElementById('google-gsi-script');
       if (script) {
         script.addEventListener('load', initGsi);
@@ -130,7 +194,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      // 1. Send ID token credential to Backend API to execute authentication & LoginAttempt logging
+      // Send ID token to Backend API
       const response = await fetch('http://localhost:5001/api/v1/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -143,30 +207,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(data.message || 'Error - Use valid login credentials.');
       }
 
-      // 2. Successful login from Backend API
+      // Build identity-only AuthUser — DB data will be fetched by syncWithDb
+      const dbPicture = data.user.picture && data.user.picture.trim() !== '' ? data.user.picture : undefined;
       const newAuthUser: AuthUser = {
         uid: data.user.id || payload.sub,
         name: data.user.name || resolveDisplayName(payload.name, payload.email),
         email: data.user.email || payload.email,
-        photoURL: data.user.picture || payload.picture,
+        photoURL: dbPicture,
         initials: getInitials(data.user.name || payload.name || payload.email),
-        role: data.user.role === 'ADMIN' ? 'Admin' : 'User',
-        status: data.user.accountStatus === 'ACTIVE' ? 'Active' : 'Inactive',
+        role: (data.user.role === 'ADMIN' ? 'Admin' : 'Customer') as AuthUser['role'],
+        status: (data.user.accountStatus === 'ACTIVE' ? 'Active' : 'Inactive') as AuthUser['status'],
+        creditsAvailable: data.user.creditsAvailable,
+        totalCredits: data.user.totalCredits,
         memberSince: data.user.createdAt || new Date().toISOString(),
         orgName: 'QuickAds',
       };
 
-      saveUserSession(newAuthUser);
+      saveIdentitySession(newAuthUser);
       setAuthUser(newAuthUser);
       setUser(mapToLegacyUser(newAuthUser));
       setIsLoggedIn(true);
     } catch (err: any) {
-      // If backend API returned error (e.g. non-@quickads.ai email rejected)
       if (err.message && err.message !== 'Failed to fetch') {
         throw new Error(err.message);
       }
 
-      // Standalone client fallback if backend server is not running locally
+      // Client-side fallback when backend is offline
       validateGooglePayload(payload);
       const newAuthUser = buildAuthUser(payload);
       saveUserSession(newAuthUser);
@@ -178,10 +244,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const devLogin = useCallback((email: string) => {
     const mockUser = simulateDevLogin(email);
-    setAuthUser(mockUser);
-    setUser(mapToLegacyUser(mockUser));
-    setIsLoggedIn(true);
-  }, []);
+    syncWithDb(mockUser);
+  }, [syncWithDb]);
 
   const logout = useCallback(() => {
     clearUserSession();
@@ -189,7 +253,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setIsLoggedIn(false);
 
-    // Sign out from Google to prevent instant re-login
     if (window.google?.accounts?.id) {
       window.google.accounts.id.disableAutoSelect();
     }
@@ -198,7 +261,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   /** Legacy switchRole — kept so DemoControlPanel doesn't break */
   const switchRole = useCallback((_role: UserRole) => {
     // No-op in the new Google-only auth flow.
-    // DemoControlPanel still calls this but it has no effect.
   }, []);
 
   const role: UserRole | null = user ? user.role : null;
@@ -209,6 +271,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthContext.Provider>
   );
 };
+
+/**
+ * Saves only identity fields to localStorage.
+ * Mutable DB fields (credits, picture, role, status) are intentionally excluded
+ * so they are always fetched fresh from the DB on next load.
+ */
+function saveIdentitySession(user: AuthUser): void {
+  const SESSION_KEY = 'crm_auth_user_v2';
+  const identity = {
+    uid: user.uid,
+    email: user.email,
+    name: user.name,
+    initials: user.initials,
+    memberSince: user.memberSince,
+    orgName: user.orgName,
+    role: user.role,
+    status: user.status,
+  };
+  localStorage.setItem(SESSION_KEY, JSON.stringify(identity));
+}
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

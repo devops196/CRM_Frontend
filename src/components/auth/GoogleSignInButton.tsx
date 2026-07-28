@@ -13,7 +13,7 @@ interface GoogleSignInButtonProps {
  */
 const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({ onSuccess, onError }) => {
   const buttonRef = useRef<HTMLDivElement>(null);
-  const isConfigured = GOOGLE_CLIENT_ID !== 'YOUR_GOOGLE_CLIENT_ID';
+  const isConfigured = (GOOGLE_CLIENT_ID as string) !== 'YOUR_GOOGLE_CLIENT_ID';
 
   useEffect(() => {
     if (!isConfigured || !buttonRef.current) return;

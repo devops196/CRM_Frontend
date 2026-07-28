@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useCRMState } from '../contexts/CRMStateContext';
 import type { Customer, Lead, Task } from '../contexts/CRMStateContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,7 +7,8 @@ import ProfileCard from '../components/profile/ProfileCard';
 import TeamTable from '../components/team/TeamTable';
 import AddUserModal from '../components/team/AddUserModal';
 import { useTeam } from '../hooks/useTeam';
-import { AccountLookup } from '../components/profile/AccountLookup';
+import type { TeamMember } from '../types/team';
+import { fetchTeamMembersFromApi, addMemberToMyTeamApi } from '../services/team.service';
 
 /* ==========================================================================
    COMPONENT: CUSTOMERS DIRECTORY
@@ -516,15 +517,218 @@ export const TaskList: React.FC = () => {
 };
 
 export const TeamLookupView: React.FC = () => {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<TeamMember[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  const handleSearch = useCallback(async (searchQuery: string) => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
+      setResults([]);
+      setHasSearched(false);
+      return;
+    }
+
+    setLoading(true);
+    setHasSearched(true);
+    try {
+      const data = await fetchTeamMembersFromApi({ search: trimmed });
+      setResults(data);
+    } catch (err) {
+      console.error('Error querying team member:', err);
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Search debounced when query changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (query.trim()) {
+        handleSearch(query);
+      } else {
+        setResults([]);
+        setHasSearched(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [query, handleSearch]);
+
   return (
-    <div style={{ maxWidth: '850px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '800px', margin: '0 auto', fontFamily: 'var(--font-sans)' }}>
+      {/* ── Header ── */}
       <div>
-        <h2 style={{ margin: 0, fontWeight: 700, fontSize: '1.75rem' }}>Team Lookup</h2>
-        <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-          Search organization team member profiles, check active subscription status, plan limits, and credit validity.
+        <h2 style={{ margin: 0, fontWeight: 800, fontSize: '1.75rem', letterSpacing: '-0.02em' }}>Team Lookup</h2>
+        <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+          Search for team members directly from the database to view their profile, role, status, and CRM credits.
         </p>
       </div>
-      <AccountLookup />
+
+      {/* ── Lookup Box ── */}
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1.5rem' }}>
+        <div className="form-group" style={{ marginBottom: 0 }}>
+          <label className="form-label" style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.4rem' }}>
+            Search Team Member (Name, Email, or Employee ID)
+          </label>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <input
+              type="text"
+              placeholder="Enter name, email, or employee ID..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="form-input"
+              style={{ height: '42px', fontSize: '0.95rem', flex: 1 }}
+              autoFocus
+            />
+            <button
+              onClick={() => handleSearch(query)}
+              disabled={loading}
+              className="btn btn-primary"
+              style={{ height: '42px', padding: '0 1.25rem', fontSize: '0.9rem', fontWeight: 650 }}
+            >
+              {loading ? 'Searching...' : 'Lookup'}
+            </button>
+          </div>
+        </div>
+
+        {/* ── Initial Prompt ── */}
+        {!hasSearched && !loading && (
+          <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem', border: '1px dashed var(--border)', borderRadius: 'var(--radius-sm)' }}>
+            Enter a name, email address, or employee ID above to search database user details and credit balance.
+          </div>
+        )}
+
+        {/* ── State: Loading ── */}
+        {loading && (
+          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+            Searching database for matching user...
+          </div>
+        )}
+
+        {/* ── State: No Results Found in DB ── */}
+        {hasSearched && !loading && results.length === 0 && (
+          <div style={{ padding: '1.5rem', textAlign: 'center', backgroundColor: 'var(--bg-sidebar)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+            No user found matching <strong>"{query}"</strong> in the database.
+          </div>
+        )}
+
+        {/* ── State: Match Details Card(s) ── */}
+        {hasSearched && !loading && results.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {results.map((user) => {
+              const available = user.creditsAvailable ?? 0;
+              const total = user.totalCredits ?? 0;
+              const used = Math.max(0, total - available);
+              const remainingPct = user.remainingPercentage ?? (total > 0 ? Math.round((available / total) * 100) : 0);
+
+              let healthColor = '#10b981';
+              let healthBg = 'rgba(16, 185, 129, 0.12)';
+              if (user.creditHealth === 'Critical') {
+                healthColor = '#ef4444';
+                healthBg = 'rgba(239, 68, 68, 0.12)';
+              } else if (user.creditHealth === 'Warning') {
+                healthColor = '#f59e0b';
+                healthBg = 'rgba(245, 158, 11, 0.12)';
+              }
+
+              return (
+                <div
+                  key={user.id}
+                  style={{
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--bg-sidebar)',
+                    padding: '1.25rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '1.2rem',
+                  }}
+                >
+                  {/* User Profile Header */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                      <div
+                        style={{
+                          width: '52px',
+                          height: '52px',
+                          borderRadius: '50%',
+                          backgroundColor: 'var(--primary)',
+                          color: '#000',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 700,
+                          fontSize: '1.2rem',
+                          overflow: 'hidden',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                        }}
+                      >
+                        {user.photoURL ? (
+                          <img src={user.photoURL} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          user.initials || user.name.charAt(0)
+                        )}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{user.name}</div>
+                        <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{user.email}</div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
+                          ID: {user.employeeId}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.35rem' }}>
+                      <span className={`badge ${user.accountStatus === 'Active' || user.status === 'Active' ? 'badge-success' : 'badge-error'}`} style={{ fontSize: '0.7rem' }}>
+                        {user.accountStatus || user.status}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                        Plan: <strong style={{ color: 'var(--text-primary)' }}>{user.role === 'Admin' ? 'Admin Plan' : 'Customer Plan'}</strong>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div style={{ height: '1px', backgroundColor: 'var(--border)' }} />
+
+                  {/* Credits & Plan Details Grid */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>CRM Credits Balance</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: healthColor, backgroundColor: healthBg, padding: '2px 8px', borderRadius: '10px' }}>
+                        {remainingPct}% Remaining ({user.creditHealth || 'Healthy'})
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', backgroundColor: 'var(--bg-card)', padding: '0.85rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                      <div>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Available Credits</div>
+                        <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#10b981', marginTop: '0.1rem' }}>{available.toLocaleString()}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Total Credits</div>
+                        <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.1rem' }}>{total.toLocaleString()}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Credits Used</div>
+                        <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-secondary)', marginTop: '0.1rem' }}>{used.toLocaleString()}</div>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div style={{ height: '8px', width: '100%', backgroundColor: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${Math.min(remainingPct, 100)}%`, backgroundColor: healthColor, transition: 'width 0.4s ease' }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -537,7 +741,7 @@ export const SettingsPanel: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Team management hook
-  const { members, memberCount, addMember, initTeam } = useTeam();
+  const { members, memberCount, initTeam, setMembers } = useTeam();
 
   // Initialize team list once we have an authenticated user
   useEffect(() => {
@@ -545,6 +749,17 @@ export const SettingsPanel: React.FC = () => {
       initTeam(authUser);
     }
   }, [authUser, initTeam]);
+
+  // Async handler that calls the DB API to add a member
+  const handleAddMember = async (email: string): Promise<string | null> => {
+    if (!authUser?.email) return 'Not authenticated.';
+    const result = await addMemberToMyTeamApi(authUser.email, email);
+    if (result.success) {
+      setMembers(result.team);
+      return null;
+    }
+    return result.message || 'Failed to add member.';
+  };
 
   // The owner's team member ID for the "You" badge
   const ownerTeamId = authUser ? `tm_owner_${authUser.uid}` : undefined;
@@ -572,52 +787,6 @@ export const SettingsPanel: React.FC = () => {
           </div>
         )}
       </div>
-
-      {/* ── SECTION 2: Team ─────────────────────────────────────── */}
-      <div>
-        {/* Section header */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '1rem',
-            flexWrap: 'wrap',
-            gap: '0.75rem',
-          }}
-        >
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Team</h3>
-              <span className="badge badge-primary" style={{ fontSize: '0.7rem' }}>
-                <Users size={11} /> {memberCount} {memberCount === 1 ? 'Member' : 'Members'}
-              </span>
-            </div>
-            <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Manage workspace members. Only <strong>@quickads.ai</strong> accounts can be added.
-            </p>
-          </div>
-
-          <button
-            className="btn btn-primary"
-            style={{ fontSize: '0.82rem', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-            onClick={() => setIsModalOpen(true)}
-            disabled={!authUser}
-          >
-            <UserPlus size={14} /> Add User
-          </button>
-        </div>
-
-        {/* Team members table */}
-        <TeamTable members={members} ownerId={ownerTeamId} />
-      </div>
-
-      {/* Add User Modal */}
-      <AddUserModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onAdd={addMember}
-      />
     </div>
   );
 };

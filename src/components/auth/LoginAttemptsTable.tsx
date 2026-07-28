@@ -248,7 +248,7 @@ export const LoginAttemptsTable: React.FC = () => {
                         <ExternalLink size={11} /> Link
                       </a>
                     ) : (
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', italic: 'true' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
                         No Image Provided
                       </span>
                     )}

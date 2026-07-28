@@ -19,7 +19,7 @@ import { validateCompanyEmail } from '../utils/validateCompanyEmail';
  */
 export const GOOGLE_CLIENT_ID = '53885266153-q6f4istflc5601bkqa2q0kponskcodb0.apps.googleusercontent.com';
 
-const SESSION_KEY = 'crm_auth_user';
+const SESSION_KEY = 'crm_auth_user_v2';
 
 /**
  * Decodes a Google JWT credential (base64url) without signature verification.

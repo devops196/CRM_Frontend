@@ -9,8 +9,8 @@ interface MemberAvatarProps {
   name: string;
   /** Size of the avatar in pixels. Defaults to 36. */
   size?: number;
-  /** Role badge: 'Admin' renders a gold ring, 'User' renders a subtle border */
-  role?: 'Admin' | 'User';
+  /** Role badge: 'Admin' renders a gold ring, 'User' / 'Customer' renders a subtle border */
+  role?: 'Admin' | 'User' | 'Customer' | string;
 }
 
 /**

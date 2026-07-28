@@ -1,126 +1,65 @@
 import React, { useState } from 'react';
-import { Search, XCircle, Loader2, AlertTriangle, Zap } from 'lucide-react';
+import { Search, Loader2, AlertTriangle, Zap, CheckCircle2, ShieldCheck } from 'lucide-react';
+import type { TeamMember } from '../../types/team';
+import { fetchTeamMembersFromApi } from '../../services/team.service';
 
-// ─────────────────────────────────────────────
-// Mock Data
-// ─────────────────────────────────────────────
-interface AccountData {
-  name: string;
-  email: string;
-  status: 'Active' | 'Inactive';
-  creditsAssigned: number;
-  creditsUsed: number;
-  plan: string;
-  purchasedDate: string;
-  validityDate: string;
-}
-
-const MOCK_DB: Record<string, AccountData> = {
-  'rajesh': {
-    name: 'Rajesh Kesevan',
-    email: 'rajesh@quickads.ai',
-    status: 'Active',
-    creditsAssigned: 5000,
-    creditsUsed: 3120,
-    plan: 'Pro Growth',
-    purchasedDate: '2026-01-15',
-    validityDate: '2027-01-15',
-  },
-  'devops': {
-    name: 'DevOps Team',
-    email: 'devops@quickads.ai',
-    status: 'Active',
-    creditsAssigned: 10000,
-    creditsUsed: 950,
-    plan: 'Enterprise',
-    purchasedDate: '2025-11-01',
-    validityDate: '2026-11-01',
-  },
-  'sarah': {
-    name: 'Sarah Mitchell',
-    email: 'sarah@quickads.ai',
-    status: 'Inactive',
-    creditsAssigned: 2000,
-    creditsUsed: 2000,
-    plan: 'Starter',
-    purchasedDate: '2025-06-10',
-    validityDate: '2026-06-10',
-  },
-  'alex': {
-    name: 'Alex Turner',
-    email: 'alex@quickads.ai',
-    status: 'Active',
-    creditsAssigned: 3000,
-    creditsUsed: 450,
-    plan: 'Business',
-    purchasedDate: '2026-03-20',
-    validityDate: '2027-03-20',
-  },
-};
-
-async function fetchAccount(prefix: string): Promise<AccountData | null> {
-  await new Promise(r => setTimeout(r, Math.random() * 500 + 200));
-  return MOCK_DB[prefix.toLowerCase()] ?? null;
-}
-
-function formatDate(iso: string) {
+function formatDate(iso?: string) {
+  if (!iso) return 'Active Subscription';
   return new Date(iso).toLocaleDateString('en-US', {
     year: 'numeric', month: 'short', day: 'numeric',
   });
 }
 
-// Credit Progress Bar following the CSS Theme Variables
-const CreditBar: React.FC<{ used: number; total: number }> = ({ used, total }) => {
-  const pct = Math.min((used / total) * 100, 100);
+const CreditBar: React.FC<{ available: number; total: number; health: string }> = ({ available, total, health }) => {
+  const used = Math.max(0, total - available);
+  const remainingPct = total > 0 ? Math.round((available / total) * 100) : 0;
   
+  let healthColor = '#10b981';
+  if (health === 'Critical') healthColor = '#ef4444';
+  else if (health === 'Warning') healthColor = '#f59e0b';
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Credit Consumption</span>
+        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Credits Allocation</span>
         <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-          {used.toLocaleString()}
-          <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}> / {total.toLocaleString()}</span>
+          {available.toLocaleString()}
+          <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}> / {total.toLocaleString()} Available</span>
         </span>
       </div>
 
-      {/* Progress Track */}
       <div style={{ height: '8px', width: '100%', borderRadius: '4px', backgroundColor: 'var(--border)', overflow: 'hidden' }}>
         <div
           style={{
             height: '100%',
             borderRadius: '4px',
-            backgroundColor: 'var(--primary)',
-            width: `${pct}%`,
+            backgroundColor: healthColor,
+            width: `${Math.min(remainingPct, 100)}%`,
             transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
-            boxShadow: 'var(--shadow-primary)'
+            boxShadow: `0 0 10px ${healthColor}40`
           }}
         />
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-        <span>{pct.toFixed(0)}% Used</span>
-        <span>{(total - used).toLocaleString()} Remaining</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+        <span style={{ color: healthColor, fontWeight: 650 }}>{remainingPct}% Remaining ({health})</span>
+        <span>{used.toLocaleString()} Used</span>
       </div>
     </div>
   );
 };
 
-type FetchState = 'idle' | 'loading' | 'found' | 'not_found' | 'error';
-
-export const AccountLookup: React.FC = () => {
+export const AccountLookup: React.FC<{ onSearchTrigger?: (query: string) => void }> = ({ onSearchTrigger }) => {
   const [prefix, setPrefix] = useState('');
-  const [state, setState] = useState<FetchState>('idle');
-  const [account, setAccount] = useState<AccountData | null>(null);
+  const [state, setState] = useState<'idle' | 'loading' | 'found' | 'not_found' | 'error'>('idle');
+  const [account, setAccount] = useState<TeamMember | null>(null);
   const [validationError, setValidationError] = useState('');
+  // Search handler
 
   const handleCheck = async () => {
     const trimmed = prefix.trim();
     if (!trimmed) {
-      setValidationError('Please enter email prefix');
-      return;
-    }
-    if (!/^[a-zA-Z0-9._+-]+$/.test(trimmed)) {
-      setValidationError('Invalid email prefix characters');
+      setValidationError('Please enter email, name, or employee ID');
       return;
     }
     setValidationError('');
@@ -128,10 +67,11 @@ export const AccountLookup: React.FC = () => {
     setAccount(null);
 
     try {
-      const data = await fetchAccount(trimmed);
-      if (data) {
-        setAccount(data);
+      const results = await fetchTeamMembersFromApi({ search: trimmed });
+      if (results.length > 0) {
+        setAccount(results[0]);
         setState('found');
+        if (onSearchTrigger) onSearchTrigger(trimmed);
       } else {
         setState('not_found');
       }
@@ -145,20 +85,24 @@ export const AccountLookup: React.FC = () => {
   };
 
   return (
-    <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', height: '100%' }}>
+    <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
       
-      {/* ── Title Element with Icon ── */}
+      {/* ── Header Title ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Search size={16} style={{ color: 'var(--primary)' }} />
-          <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Account Lookup</h3>
+          <Search size={18} style={{ color: 'var(--primary)' }} />
+          <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>Direct Member Credit Lookup</h3>
         </div>
-        <span className="badge badge-primary" style={{ fontSize: '0.65rem' }}>Billing Directory</span>
+        <span className="badge badge-primary" style={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+          <ShieldCheck size={11} /> Live User Table
+        </span>
       </div>
 
       {/* ── Input Box Form ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        <label className="form-label" style={{ marginBottom: 0 }}>Search member profile by email prefix</label>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+        <label className="form-label" style={{ marginBottom: 0 }}>
+          Search member profile by Name, Email, or Employee ID
+        </label>
         
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
           <div style={{ display: 'flex', flex: 1, alignItems: 'center', position: 'relative' }}>
@@ -167,48 +111,30 @@ export const AccountLookup: React.FC = () => {
               value={prefix}
               onChange={e => { setPrefix(e.target.value); setValidationError(''); }}
               onKeyDown={handleKeyDown}
-              placeholder="e.g. rajesh"
+              placeholder="Enter name, email, or employee ID..."
               className="form-input"
               style={{
-                paddingRight: '6.5rem',
-                height: '38px',
+                height: '40px',
                 fontSize: '0.9rem',
                 borderColor: validationError ? 'var(--error)' : undefined
               }}
               autoComplete="off"
               spellCheck={false}
             />
-            <span style={{
-              position: 'absolute',
-              right: '1px',
-              height: '36px',
-              display: 'flex',
-              alignItems: 'center',
-              padding: '0 0.75rem',
-              backgroundColor: 'var(--bg-sidebar)',
-              borderLeft: '1px solid var(--border)',
-              borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
-              fontSize: '0.8rem',
-              color: 'var(--text-muted)',
-              fontWeight: 500,
-              userSelect: 'none'
-            }}>
-              @quickads.ai
-            </span>
           </div>
 
           <button
             onClick={handleCheck}
             disabled={state === 'loading'}
             className="btn btn-primary"
-            style={{ padding: '0 1rem', height: '38px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+            style={{ padding: '0 1.25rem', height: '40px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 650 }}
           >
             {state === 'loading' ? (
-              <Loader2 size={13} className="animate-spin" />
+              <Loader2 size={14} className="animate-spin" />
             ) : (
-              <Zap size={12} />
+              <Zap size={14} />
             )}
-            Verify
+            Verify Credits
           </button>
         </div>
 
@@ -218,105 +144,76 @@ export const AccountLookup: React.FC = () => {
             <AlertTriangle size={12} /> {validationError}
           </div>
         )}
-        
-        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-          Quick links:{' '}
-          {['rajesh', 'devops', 'sarah', 'alex'].map((name) => (
-            <button
-              key={name}
-              type="button"
-              onClick={() => { setPrefix(name); setValidationError(''); }}
-              style={{ background: 'none', border: 'none', padding: 0, textDecoration: 'underline', color: 'var(--primary)', cursor: 'pointer', marginRight: '0.4rem' }}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
       </div>
-
-      {/* ── Loading Skeleton ── */}
-      {state === 'loading' && (
-        <div style={{ padding: '1rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', gap: '0.8rem', opacity: 0.6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--border)' }} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: 1 }}>
-              <div style={{ height: '12px', width: '40%', backgroundColor: 'var(--border)', borderRadius: '2px' }} />
-              <div style={{ height: '8px', width: '60%', backgroundColor: 'var(--border)', borderRadius: '2px' }} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Not Found / Error States ── */}
-      {state === 'not_found' && (
-        <div style={{ padding: '1rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-sidebar)', display: 'flex', gap: '0.6rem', alignItems: 'center', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-          <XCircle size={16} style={{ color: 'var(--error)', flexShrink: 0 }} />
-          <span>Profile prefix <strong>{prefix}</strong> not registered under organization directory.</span>
-        </div>
-      )}
-
-      {state === 'error' && (
-        <div style={{ padding: '1rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-sidebar)', display: 'flex', gap: '0.6rem', alignItems: 'center', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-          <AlertTriangle size={16} style={{ color: 'var(--warning)', flexShrink: 0 }} />
-          <span>System error. Please check server telemetry logs.</span>
-        </div>
-      )}
 
       {/* ── Lookup Results Card ── */}
       {state === 'found' && account && (
-        <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', overflow: 'hidden', backgroundColor: 'var(--bg-card)' }}>
           
-          {/* Result Card Header */}
           <div style={{ padding: '0.85rem 1rem', background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <div style={{
-                width: '28px', height: '28px', borderRadius: '50%',
+                width: '32px', height: '32px', borderRadius: '50%',
                 backgroundColor: 'var(--primary)', color: '#000',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontWeight: 700, fontSize: '0.85rem'
+                fontWeight: 700, fontSize: '0.85rem', overflow: 'hidden'
               }}>
-                {account.name.charAt(0)}
+                {account.photoURL ? (
+                  <img src={account.photoURL} alt={account.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  account.name.charAt(0)
+                )}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>{account.name}</span>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{account.email}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>{account.name}</span>
+                  <span className="badge badge-primary" style={{ fontSize: '0.6rem' }}>{account.role}</span>
+                </div>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{account.email} • ID: {account.employeeId}</span>
               </div>
             </div>
-            <span className={`badge ${account.status === 'Active' ? 'badge-success' : 'badge-error'}`} style={{ fontSize: '0.65rem' }}>
-              {account.status}
-            </span>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span className={`badge ${account.accountStatus === 'Active' || account.status === 'Active' ? 'badge-success' : 'badge-error'}`} style={{ fontSize: '0.65rem' }}>
+                {account.accountStatus || account.status}
+              </span>
+            </div>
           </div>
 
-          {/* Details body */}
           <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {/* Credit usage */}
-            <CreditBar used={account.creditsUsed} total={account.creditsAssigned} />
+            <CreditBar available={account.creditsAvailable} total={account.totalCredits} health={account.creditHealth} />
 
-            {/* Plan Info Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', borderTop: '1px solid var(--border)', paddingTop: '0.85rem' }}>
-              
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', borderTop: '1px solid var(--border)', paddingTop: '0.85rem' }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>Selected Plan</span>
-                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--primary)', marginTop: '0.15rem' }}>
-                  {account.plan}
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Available Credits</span>
+                <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.15rem' }}>
+                  {account.creditsAvailable.toLocaleString()}
                 </span>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>Validity Duration</span>
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Allocation</span>
+                <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.15rem' }}>
+                  {account.totalCredits.toLocaleString()}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Subscription Date</span>
                 <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
-                  {formatDate(account.purchasedDate)} - {formatDate(account.validityDate)}
+                  {formatDate(account.createdAt)}
                 </span>
               </div>
-
             </div>
           </div>
 
-          {/* Action clear */}
-          <div style={{ padding: '0.5rem 1rem', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', background: 'var(--bg-sidebar)' }}>
+          <div style={{ padding: '0.5rem 1rem', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-sidebar)' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+              <CheckCircle2 size={12} /> Verified from User database
+            </span>
             <button
               onClick={() => { setState('idle'); setPrefix(''); setAccount(null); }}
-              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.7rem', textDecoration: 'underline', cursor: 'pointer' }}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.72rem', textDecoration: 'underline', cursor: 'pointer' }}
             >
               Clear Result
             </button>
@@ -325,7 +222,15 @@ export const AccountLookup: React.FC = () => {
         </div>
       )}
 
+      {state === 'not_found' && (
+        <div style={{ padding: '1rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-sidebar)', display: 'flex', gap: '0.6rem', alignItems: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+          <AlertTriangle size={16} style={{ color: 'var(--warning)', flexShrink: 0 }} />
+          <span>No user found matching query <strong>{prefix}</strong> in organization database.</span>
+        </div>
+      )}
+
     </div>
   );
 };
+
 export default AccountLookup;

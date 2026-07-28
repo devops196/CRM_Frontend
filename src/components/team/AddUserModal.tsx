@@ -8,9 +8,9 @@ interface AddUserModalProps {
   onClose: () => void;
   /**
    * Called when the user submits a valid email.
-   * @returns An error string if the addition failed, or `null` on success.
+   * May be sync or async. Returns an error string on failure, or null on success.
    */
-  onAdd: (email: string) => string | null;
+  onAdd: (email: string) => string | null | Promise<string | null>;
 }
 
 /**
@@ -44,7 +44,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose, onAdd }) =
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = email.trim();
     if (!trimmed) {
@@ -53,7 +53,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose, onAdd }) =
     }
 
     setIsAdding(true);
-    const result = onAdd(trimmed);
+    const result = await Promise.resolve(onAdd(trimmed));
     setIsAdding(false);
 
     if (result) {

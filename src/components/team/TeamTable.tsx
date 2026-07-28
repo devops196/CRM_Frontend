@@ -9,36 +9,39 @@ interface TeamTableProps {
 }
 
 /**
- * Renders the complete team members table.
- * Columns: Member, Role, Status.
- * The owner (logged-in user) is always first and labeled "You".
+ * Renders the Team Members Credits table.
+ * Columns: User | Role | Status | Available Credits | Total Credits | Usage
  */
 const TeamTable: React.FC<TeamTableProps> = ({ members, ownerId }) => {
   if (members.length === 0) {
     return (
       <div
         style={{
-          padding: '2rem',
+          padding: '3rem 2rem',
           textAlign: 'center',
           color: 'var(--text-muted)',
-          fontSize: '0.85rem',
+          fontSize: '0.88rem',
           border: '1px dashed var(--border)',
           borderRadius: 'var(--radius-md)',
+          backgroundColor: 'var(--bg-sidebar)',
         }}
       >
-        No team members yet. Add your first member using the button above.
+        No team members match your search or filter criteria.
       </div>
     );
   }
 
   return (
-    <div className="table-container">
+    <div className="table-container" style={{ borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
       <table className="custom-table">
         <thead>
           <tr>
-            <th>Member</th>
+            <th>User</th>
             <th>Role</th>
             <th>Status</th>
+            <th style={{ textAlign: 'right' }}>Available Credits</th>
+            <th style={{ textAlign: 'right' }}>Total Credits</th>
+            <th>Usage</th>
           </tr>
         </thead>
         <tbody>

@@ -46,12 +46,16 @@ export interface AuthUser {
   photoURL?: string;
   /** Initials derived from name, used as avatar fallback */
   initials: string;
-  /** Role in the CRM — always 'Admin' for authenticated users */
-  role: 'Admin' | 'User';
+  /** Role in the CRM */
+  role: 'Admin' | 'User' | 'Customer' | 'super_admin' | 'admin' | 'customer';
   /** Account status */
-  status: 'Active' | 'Pending';
+  status: 'Active' | 'Pending' | 'Inactive';
   /** ISO timestamp of when the user first authenticated */
   memberSince: string;
   /** Organisation name displayed in the header */
   orgName: string;
+  /** Credits available */
+  creditsAvailable?: number;
+  /** Total credits */
+  totalCredits?: number;
 }
