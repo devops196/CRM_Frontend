@@ -160,6 +160,10 @@ export const removeMemberFromMyTeamApi = async (
 
 /** Helper to map user object from DB DTO */
 function mapUserDtoToTeamMember(u: any): TeamMember {
+  const total = u.totalCredits ?? 0;
+  const available = u.creditsAvailable ?? 0;
+  const used = Math.max(0, total - available);
+
   return {
     id: u.id,
     employeeId: u.employeeId,
@@ -170,12 +174,45 @@ function mapUserDtoToTeamMember(u: any): TeamMember {
     role: u.role === 'ADMIN' ? 'Admin' : 'Customer',
     status: u.accountStatus === 'ACTIVE' ? 'Active' : 'Inactive',
     accountStatus: u.accountStatus === 'ACTIVE' ? 'Active' : 'Inactive',
-    creditsAvailable: u.creditsAvailable ?? 0,
-    totalCredits: u.totalCredits ?? 0,
+    creditsAvailable: available,
+    totalCredits: total,
     usagePercentage: u.usagePercentage ?? 0,
     remainingPercentage: u.remainingPercentage ?? 0,
     creditHealth: u.creditHealth || 'Healthy',
     createdAt: u.subscriptionStartDate,
+
+    // Map 11 PostgreSQL credit fields (supporting both camelCase & lowercase API keys)
+    generationCreditsUsed: u.generationCreditsUsed ?? u.generationcreditsused ?? used,
+    generationCreditsTotal: u.generationCreditsTotal ?? u.generationcreditstotal ?? total,
+
+    videoCreditsUsed: u.videoCreditsUsed ?? u.videocreditsused ?? 0,
+    videoCreditsTotal: u.videoCreditsTotal ?? u.videocreditstotal ?? 0,
+
+    voiceCreditsUsed: u.voiceCreditsUsed ?? u.voicecreditsused ?? 0,
+    voiceCreditsTotal: u.voiceCreditsTotal ?? u.voicecreditstotal ?? 0,
+
+    voiceCloneCreditsUsed: u.voiceCloneCreditsUsed ?? u.voiceclonecreditsused ?? 0,
+    voiceCloneCreditsTotal: u.voiceCloneCreditsTotal ?? u.voiceclonecreditstotal ?? 0,
+
+    analysisCreditsUnlimited: u.analysisCreditsUnlimited ?? u.analysiscreditsunlimited ?? true,
+
+    ugcCreditsUsed: u.ugcCreditsUsed ?? u.ugccreditsused ?? 0,
+    ugcCreditsTotal: u.ugcCreditsTotal ?? u.ugccreditstotal ?? 0,
+
+    imageCreditsUsed: u.imageCreditsUsed ?? u.imagecreditsused ?? 0,
+    imageCreditsTotal: u.imageCreditsTotal ?? u.imagecreditstotal ?? 0,
+
+    imageToVideoCreditsUsed: u.imageToVideoCreditsUsed ?? u.imagetovideocreditsused ?? 0,
+    imageToVideoCreditsTotal: u.imageToVideoCreditsTotal ?? u.imagetovideocreditstotal ?? 0,
+
+    aiVideoCreditsUsed: u.aiVideoCreditsUsed ?? u.aivideocreditsused ?? 0,
+    aiVideoCreditsTotal: u.aiVideoCreditsTotal ?? u.aivideocreditstotal ?? 0,
+
+    brandsCreated: u.brandsCreated ?? u.brandscreated ?? 0,
+    brandsLimit: u.brandsLimit ?? u.brandslimit ?? 0,
+
+    usersAdded: u.usersAdded ?? u.usersadded ?? 0,
+    usersLimit: u.usersLimit ?? u.userslimit ?? 0,
   };
 }
 
@@ -213,5 +250,8 @@ export const buildOwnerMember = (authUser: AuthUser): TeamMember => {
     remainingPercentage,
     creditHealth,
     createdAt: authUser.memberSince,
+
+    generationCreditsUsed: used,
+    generationCreditsTotal: totalCredits,
   };
 };

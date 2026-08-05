@@ -31,6 +31,39 @@ export interface TeamMember {
   creditHealth: 'Healthy' | 'Warning' | 'Critical';
   /** ISO timestamp of when this member was added / created */
   createdAt?: string;
+
+  // 11 PostgreSQL credit category fields
+  generationCreditsUsed?: number;
+  generationCreditsTotal?: number;
+
+  videoCreditsUsed?: number;
+  videoCreditsTotal?: number;
+
+  voiceCreditsUsed?: number;
+  voiceCreditsTotal?: number;
+
+  voiceCloneCreditsUsed?: number;
+  voiceCloneCreditsTotal?: number;
+
+  analysisCreditsUnlimited?: boolean;
+
+  ugcCreditsUsed?: number;
+  ugcCreditsTotal?: number;
+
+  imageCreditsUsed?: number;
+  imageCreditsTotal?: number;
+
+  imageToVideoCreditsUsed?: number;
+  imageToVideoCreditsTotal?: number;
+
+  aiVideoCreditsUsed?: number;
+  aiVideoCreditsTotal?: number;
+
+  brandsCreated?: number;
+  brandsLimit?: number;
+
+  usersAdded?: number;
+  usersLimit?: number;
 }
 
 export interface TeamFilters {

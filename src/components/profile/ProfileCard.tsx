@@ -8,6 +8,7 @@ import {
   removeMemberFromMyTeamApi,
 } from '../../services/team.service';
 import MemberAvatar from '../team/MemberAvatar';
+import UsageCreditsDashboard from './UsageCreditsDashboard';
 import { Calendar, Mail, Shield, Zap, Coins, Loader, UserPlus, UserMinus, Users, Search } from 'lucide-react';
 
 interface ProfileCardProps {
@@ -36,10 +37,14 @@ const ProfileCard: React.FC<ProfileCardProps> = ({ authUser }) => {
     setLoading(true);
     fetchTeamMembersFromApi({ search: authUser.email })
       .then((members) => {
-        const match = members.find(
-          (m) => m.email.toLowerCase() === authUser.email.toLowerCase()
+        const list = Array.isArray(members) ? members : [];
+        const match = list.find(
+          (m) => m.email && m.email.toLowerCase() === authUser.email.toLowerCase()
         );
-        setDbUser(match ?? members[0] ?? null);
+        setDbUser(match ?? list[0] ?? null);
+      })
+      .catch((err) => {
+        console.error('Failed to load DB user:', err);
       })
       .finally(() => setLoading(false));
   }, [authUser?.email]);
@@ -118,11 +123,14 @@ const ProfileCard: React.FC<ProfileCardProps> = ({ authUser }) => {
     }
   };
 
-  const memberSinceFormatted = new Date(authUser.memberSince).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  const memberSinceDate = authUser?.memberSince ? new Date(authUser.memberSince) : new Date();
+  const memberSinceFormatted = !isNaN(memberSinceDate.getTime())
+    ? memberSinceDate.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+    : 'July 24, 2026';
 
   const available = dbUser?.creditsAvailable ?? 0;
   const total = dbUser?.totalCredits ?? 0;
@@ -151,10 +159,10 @@ const ProfileCard: React.FC<ProfileCardProps> = ({ authUser }) => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '850px', margin: '0 auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '850px', margin: '0 auto' }}>
       
       {/* ── Main Profile Card ── */}
-      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
         {/* Profile header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <MemberAvatar
@@ -242,6 +250,9 @@ const ProfileCard: React.FC<ProfileCardProps> = ({ authUser }) => {
             </>
           )}
         </div>
+
+        {/* Usage & Credits Dashboard (Chakra UI) connected to PostgreSQL */}
+        <UsageCreditsDashboard user={dbUser} dbUserCredits={{ available, total }} />
 
         {/* Profile details grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>

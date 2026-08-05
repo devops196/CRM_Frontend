@@ -2,13 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useCRMState } from '../contexts/CRMStateContext';
 import type { Customer, Lead, Task } from '../contexts/CRMStateContext';
 import { useAuth } from '../contexts/AuthContext';
-import { Trash2, Sparkles, Mail, Phone, MessageSquare, Play, ArrowRight, ArrowLeft, UserPlus, Users } from 'lucide-react';
+import { Trash2, Sparkles, Mail, Phone, MessageSquare, Play, ArrowRight, ArrowLeft } from 'lucide-react';
 import ProfileCard from '../components/profile/ProfileCard';
-import TeamTable from '../components/team/TeamTable';
-import AddUserModal from '../components/team/AddUserModal';
-import { useTeam } from '../hooks/useTeam';
+import UsageCreditsDashboard from '../components/profile/UsageCreditsDashboard';
 import type { TeamMember } from '../types/team';
-import { fetchTeamMembersFromApi, addMemberToMyTeamApi } from '../services/team.service';
+import { fetchTeamMembersFromApi } from '../services/team.service';
 
 /* ==========================================================================
    COMPONENT: CUSTOMERS DIRECTORY
@@ -718,10 +716,20 @@ export const TeamLookupView: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Progress Bar */}
+                    {/* Progress Bar Track */}
                     <div style={{ height: '8px', width: '100%', backgroundColor: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${Math.min(remainingPct, 100)}%`, backgroundColor: healthColor, transition: 'width 0.4s ease' }} />
                     </div>
+
+                    {/* Usage & Credits Dashboard (all 11 credit cards for looked-up user) */}
+                    <UsageCreditsDashboard
+                      user={user}
+                      dbUserCredits={{
+                        available: user.creditsAvailable,
+                        total: user.totalCredits,
+                      }}
+                      userName={user.name}
+                    />
                   </div>
                 </div>
               );
@@ -738,31 +746,6 @@ export const TeamLookupView: React.FC = () => {
    ========================================================================== */
 export const SettingsPanel: React.FC = () => {
   const { authUser } = useAuth();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // Team management hook
-  const { members, memberCount, initTeam, setMembers } = useTeam();
-
-  // Initialize team list once we have an authenticated user
-  useEffect(() => {
-    if (authUser) {
-      initTeam(authUser);
-    }
-  }, [authUser, initTeam]);
-
-  // Async handler that calls the DB API to add a member
-  const handleAddMember = async (email: string): Promise<string | null> => {
-    if (!authUser?.email) return 'Not authenticated.';
-    const result = await addMemberToMyTeamApi(authUser.email, email);
-    if (result.success) {
-      setMembers(result.team);
-      return null;
-    }
-    return result.message || 'Failed to add member.';
-  };
-
-  // The owner's team member ID for the "You" badge
-  const ownerTeamId = authUser ? `tm_owner_${authUser.uid}` : undefined;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', fontFamily: 'var(--font-sans)' }}>

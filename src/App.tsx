@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CRMStateProvider, useCRMState } from './contexts/CRMStateContext';
@@ -66,25 +67,14 @@ const DashboardShell: React.FC<{
     if ('team lookup account search'.includes(query)) {
       results.push({ category: 'Navigation', text: 'Open Team Lookup', action: () => { setCurrentView('team_lookup'); setCommandPaletteOpen(false); } });
     }
+    if ('profile settings user account'.includes(query)) {
+      results.push({ category: 'Navigation', text: 'Open Your Profile', action: () => { setCurrentView('settings'); setCommandPaletteOpen(false); } });
+    }
     if ('reset database'.includes(query)) {
       results.push({ category: 'Command', text: 'Reset mock CRM database to seed data', action: () => { resetDatabase(); alert('Database reset!'); window.location.reload(); } });
     }
     if ('toggle light dark mode theme'.includes(query)) {
       results.push({ category: 'Command', text: 'Toggle dark mode or light mode', action: () => toggleTheme() });
-    }
-    if ('go to settings'.includes(query)) {
-      results.push({ category: 'Navigation', text: 'Go to workspace API Settings', action: () => { setCurrentView('settings'); setCommandPaletteOpen(false); } });
-    }
-
-    // CRM Searches (simulated)
-    if ('stark enterprises olivia'.includes(query)) {
-      results.push({ category: 'Customer', text: 'Stark Enterprises (Olivia Stark) - MRR $4,500', action: () => { setCurrentView('customers'); setCommandPaletteOpen(false); } });
-    }
-    if ('wayne enterprises bruce'.includes(query)) {
-      results.push({ category: 'Customer', text: 'Wayne Enterprises (Bruce Wayne) - MRR $3,800', action: () => { setCurrentView('customers'); setCommandPaletteOpen(false); } });
-    }
-    if ('peter parker daily bugle'.includes(query)) {
-      results.push({ category: 'Lead', text: 'Peter Parker (Daily Bugle) - Value $12,000', action: () => { setCurrentView('leads'); setCommandPaletteOpen(false); } });
     }
 
     setSearchResults(results);
@@ -292,7 +282,7 @@ const AppRouter: React.FC = () => {
   // If the user is already logged in (via localStorage session), jump straight to the opening page
   useEffect(() => {
     if (isLoggedIn && currentView.startsWith('auth_')) {
-      setCurrentView('team_lookup');
+      setCurrentView('settings');
     }
   }, [isLoggedIn, currentView]);
 
@@ -301,7 +291,7 @@ const AppRouter: React.FC = () => {
       {/* Main Router Logic */}
       {currentView.startsWith('auth_') ? (
         <AuthPages
-          onAuthSuccess={() => setCurrentView('team_lookup')}
+          onAuthSuccess={() => setCurrentView('settings')}
         />
       ) : (
         <DashboardShell currentView={currentView} setCurrentView={setCurrentView} />
@@ -317,13 +307,15 @@ const AppRouter: React.FC = () => {
 
 const RootApp: React.FC = () => {
   return (
-    <ThemeProvider>
-      <CRMStateProvider>
-        <AuthProvider>
-          <AppRouter />
-        </AuthProvider>
-      </CRMStateProvider>
-    </ThemeProvider>
+    <ChakraProvider value={defaultSystem}>
+      <ThemeProvider>
+        <CRMStateProvider>
+          <AuthProvider>
+            <AppRouter />
+          </AuthProvider>
+        </CRMStateProvider>
+      </ThemeProvider>
+    </ChakraProvider>
   );
 };
 
