@@ -9,7 +9,7 @@ import { AuthPages } from './views/AuthPages';
 import { SuperAdminDashboard } from './views/SuperAdminDashboard';
 import { AdminDashboard } from './views/AdminDashboard';
 import { CustomerPortal } from './views/CustomerPortal';
-import { CustomersList, LeadKanban, CommunicationHub, TaskList, SettingsPanel, TeamLookupView } from './views/CRMMicroModules';
+import { CustomersList, LeadKanban, CommunicationHub, TaskList, SettingsPanel, TeamLookupView, UserCreditDetailsView } from './views/CRMMicroModules';
 
 // Components
 import { FloatingAIAssistant } from './components/FloatingAIAssistant';
@@ -29,7 +29,9 @@ import {
 const DashboardShell: React.FC<{
   currentView: string;
   setCurrentView: (view: string) => void;
-}> = ({ currentView, setCurrentView }) => {
+  selectedUserIdentifier: string;
+  setSelectedUserIdentifier: (id: string) => void;
+}> = ({ currentView, setCurrentView, selectedUserIdentifier, setSelectedUserIdentifier }) => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { resetDatabase } = useCRMState();
@@ -65,7 +67,7 @@ const DashboardShell: React.FC<{
 
     // Commands matches
     if ('team lookup account search'.includes(query)) {
-      results.push({ category: 'Navigation', text: 'Open Team Lookup', action: () => { setCurrentView('team_lookup'); setCommandPaletteOpen(false); } });
+      results.push({ category: 'Navigation', text: 'Open Team Lookup', action: () => { window.history.pushState({}, '', '/team_lookup'); setCurrentView('team_lookup'); setCommandPaletteOpen(false); } });
     }
     if ('profile settings user account'.includes(query)) {
       results.push({ category: 'Navigation', text: 'Open Your Profile', action: () => { setCurrentView('settings'); setCommandPaletteOpen(false); } });
@@ -89,8 +91,12 @@ const DashboardShell: React.FC<{
   const renderSidebarNavs = () => {
     return (
       <button
-        onClick={() => { setCurrentView('team_lookup'); setMobileMenuOpen(false); }}
-        className={`tab-btn ${currentView === 'team_lookup' ? 'active' : ''}`}
+        onClick={() => {
+          window.history.pushState({}, '', '/team_lookup');
+          setCurrentView('team_lookup');
+          setMobileMenuOpen(false);
+        }}
+        className={`tab-btn ${currentView === 'team_lookup' || currentView === 'user_credit_details' ? 'active' : ''}`}
         style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.8rem 1rem', width: '100%', borderBottom: 'none' }}
       >
         <Users size={16} /> Team Lookup
@@ -197,7 +203,25 @@ const DashboardShell: React.FC<{
 
         {/* Dashboard Body Page router */}
         <main className="page-body">
-          {currentView === 'team_lookup' && <TeamLookupView />}
+          {currentView === 'team_lookup' && (
+            <TeamLookupView
+              onSelectUser={(u) => {
+                const identifier = u.employeeId || u.id || u.email;
+                window.history.pushState({}, '', `/lookup/${encodeURIComponent(identifier)}`);
+                setSelectedUserIdentifier(identifier);
+                setCurrentView('user_credit_details');
+              }}
+            />
+          )}
+          {currentView === 'user_credit_details' && (
+            <UserCreditDetailsView
+              identifier={selectedUserIdentifier}
+              onBack={() => {
+                window.history.pushState({}, '', '/team_lookup');
+                setCurrentView('team_lookup');
+              }}
+            />
+          )}
           {currentView === 'super_admin_dashboard' && <SuperAdminDashboard />}
           {currentView === 'admin_dashboard' && <AdminDashboard />}
           {currentView === 'customer_portal' && <CustomerPortal />}
@@ -279,10 +303,42 @@ const DashboardShell: React.FC<{
 const AppRouter: React.FC = () => {
   const { isLoggedIn } = useAuth();
   const [currentView, setCurrentView] = useState('auth_login');
-  // If the user is already logged in (via localStorage session), jump straight to the opening page
+  const [selectedUserIdentifier, setSelectedUserIdentifier] = useState('');
+
+  // Location listener to parse /lookup/[identifier] from window.location.pathname
+  useEffect(() => {
+    const syncRouteFromLocation = () => {
+      const path = window.location.pathname;
+      if (path.startsWith('/lookup/')) {
+        const id = decodeURIComponent(path.replace('/lookup/', ''));
+        if (id) {
+          setSelectedUserIdentifier(id);
+          setCurrentView('user_credit_details');
+        }
+      } else if (path === '/team_lookup' || path === '/lookup') {
+        setCurrentView('team_lookup');
+      }
+    };
+
+    syncRouteFromLocation();
+
+    window.addEventListener('popstate', syncRouteFromLocation);
+    return () => window.removeEventListener('popstate', syncRouteFromLocation);
+  }, []);
+
+  // Sync auth state
   useEffect(() => {
     if (isLoggedIn && currentView.startsWith('auth_')) {
-      setCurrentView('settings');
+      const path = window.location.pathname;
+      if (path.startsWith('/lookup/')) {
+        const id = decodeURIComponent(path.replace('/lookup/', ''));
+        if (id) {
+          setSelectedUserIdentifier(id);
+          setCurrentView('user_credit_details');
+          return;
+        }
+      }
+      setCurrentView('team_lookup');
     }
   }, [isLoggedIn, currentView]);
 
@@ -291,10 +347,26 @@ const AppRouter: React.FC = () => {
       {/* Main Router Logic */}
       {currentView.startsWith('auth_') ? (
         <AuthPages
-          onAuthSuccess={() => setCurrentView('settings')}
+          onAuthSuccess={() => {
+            const path = window.location.pathname;
+            if (path.startsWith('/lookup/')) {
+              const id = decodeURIComponent(path.replace('/lookup/', ''));
+              if (id) {
+                setSelectedUserIdentifier(id);
+                setCurrentView('user_credit_details');
+                return;
+              }
+            }
+            setCurrentView('team_lookup');
+          }}
         />
       ) : (
-        <DashboardShell currentView={currentView} setCurrentView={setCurrentView} />
+        <DashboardShell
+          currentView={currentView}
+          setCurrentView={setCurrentView}
+          selectedUserIdentifier={selectedUserIdentifier}
+          setSelectedUserIdentifier={setSelectedUserIdentifier}
+        />
       )}
 
       {/* Global Floating AI assistant co-pilot */}
@@ -320,3 +392,4 @@ const RootApp: React.FC = () => {
 };
 
 export default RootApp;
+

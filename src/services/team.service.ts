@@ -62,6 +62,29 @@ export const fetchTeamMembersFromApi = async (
 };
 
 /**
+ * Fetches a single user by identifier (ID, employee ID, or email) from the backend API.
+ */
+export const fetchUserByIdentifierFromApi = async (identifier: string): Promise<TeamMember | null> => {
+  try {
+    const baseUrl = getBaseUrl();
+    const res = await fetch(`${baseUrl}/api/v1/users/lookup/${encodeURIComponent(identifier)}`, {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    });
+
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && json.data) {
+        return mapUserDtoToTeamMember(json.data);
+      }
+    }
+  } catch (err) {
+    console.error(`Failed to fetch user by identifier "${identifier}":`, err);
+  }
+  return null;
+};
+
+/**
  * Fetches the logged-in user's explicit team members from the database.
  */
 export const fetchMyTeamFromApi = async (ownerEmail: string): Promise<TeamMember[]> => {

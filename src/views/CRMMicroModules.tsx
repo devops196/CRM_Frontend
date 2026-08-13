@@ -6,7 +6,7 @@ import { Trash2, Sparkles, Mail, Phone, MessageSquare, Play, ArrowRight, ArrowLe
 import ProfileCard from '../components/profile/ProfileCard';
 import UsageCreditsDashboard from '../components/profile/UsageCreditsDashboard';
 import type { TeamMember } from '../types/team';
-import { fetchTeamMembersFromApi } from '../services/team.service';
+import { fetchTeamMembersFromApi, fetchUserByIdentifierFromApi } from '../services/team.service';
 
 /* ==========================================================================
    COMPONENT: CUSTOMERS DIRECTORY
@@ -514,7 +514,11 @@ export const TaskList: React.FC = () => {
   );
 };
 
-export const TeamLookupView: React.FC = () => {
+export interface TeamLookupViewProps {
+  onSelectUser?: (user: TeamMember) => void;
+}
+
+export const TeamLookupView: React.FC<TeamLookupViewProps> = ({ onSelectUser }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(false);
@@ -555,13 +559,23 @@ export const TeamLookupView: React.FC = () => {
     return () => clearTimeout(timer);
   }, [query, handleSearch]);
 
+  const handleCardClick = (user: TeamMember) => {
+    if (onSelectUser) {
+      onSelectUser(user);
+    } else {
+      const identifier = user.employeeId || user.id || user.email;
+      window.history.pushState({}, '', `/lookup/${identifier}`);
+      window.dispatchEvent(new Event('popstate'));
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '800px', margin: '0 auto', fontFamily: 'var(--font-sans)' }}>
       {/* ── Header ── */}
       <div>
-        <h2 style={{ margin: 0, fontWeight: 800, fontSize: '1.75rem', letterSpacing: '-0.02em' }}>Team Lookup</h2>
+        <h2 style={{ margin: 0, fontWeight: 800, fontSize: '1.75rem', letterSpacing: '-0.02em' }}>TEAM LOOKUP</h2>
         <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-          Search for team members directly from the database to view their profile, role, status, and CRM credits.
+          Search for teammates directly from the database and click to view detailed credit information.
         </p>
       </div>
 
@@ -569,12 +583,12 @@ export const TeamLookupView: React.FC = () => {
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1.5rem' }}>
         <div className="form-group" style={{ marginBottom: 0 }}>
           <label className="form-label" style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.4rem' }}>
-            Search Team Member (Name, Email, or Employee ID)
+            Search teammate...
           </label>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <input
               type="text"
-              placeholder="Enter name, email, or employee ID..."
+              placeholder="Search teammate..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="form-input"
@@ -595,7 +609,7 @@ export const TeamLookupView: React.FC = () => {
         {/* ── Initial Prompt ── */}
         {!hasSearched && !loading && (
           <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem', border: '1px dashed var(--border)', borderRadius: 'var(--radius-sm)' }}>
-            Enter a name, email address, or employee ID above to search database user details and credit balance.
+            Search teammate by name, email, or Employee ID to view profile cards.
           </div>
         )}
 
@@ -613,130 +627,299 @@ export const TeamLookupView: React.FC = () => {
           </div>
         )}
 
-        {/* ── State: Match Details Card(s) ── */}
+        {/* ── State: Basic User Cards (Clickable, NO Credit Info) ── */}
         {hasSearched && !loading && results.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {results.map((user) => {
-              const available = user.creditsAvailable ?? 0;
-              const total = user.totalCredits ?? 0;
-              const used = Math.max(0, total - available);
-              const remainingPct = user.remainingPercentage ?? (total > 0 ? Math.round((available / total) * 100) : 0);
-
-              let healthColor = '#10b981';
-              let healthBg = 'rgba(16, 185, 129, 0.12)';
-              if (user.creditHealth === 'Critical') {
-                healthColor = '#ef4444';
-                healthBg = 'rgba(239, 68, 68, 0.12)';
-              } else if (user.creditHealth === 'Warning') {
-                healthColor = '#f59e0b';
-                healthBg = 'rgba(245, 158, 11, 0.12)';
-              }
-
-              return (
-                <div
-                  key={user.id}
-                  style={{
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-sm)',
-                    backgroundColor: 'var(--bg-sidebar)',
-                    padding: '1.25rem',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '1.2rem',
-                  }}
-                >
-                  {/* User Profile Header */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                      <div
-                        style={{
-                          width: '52px',
-                          height: '52px',
-                          borderRadius: '50%',
-                          backgroundColor: 'var(--primary)',
-                          color: '#000',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 700,
-                          fontSize: '1.2rem',
-                          overflow: 'hidden',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
-                        }}
-                      >
-                        {user.photoURL ? (
-                          <img src={user.photoURL} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
-                          user.initials || user.name.charAt(0)
-                        )}
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{user.name}</div>
-                        <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{user.email}</div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
-                          ID: {user.employeeId}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.35rem' }}>
-                      <span className={`badge ${user.accountStatus === 'Active' || user.status === 'Active' ? 'badge-success' : 'badge-error'}`} style={{ fontSize: '0.7rem' }}>
-                        {user.accountStatus || user.status}
-                      </span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                        Plan: <strong style={{ color: 'var(--text-primary)' }}>{user.role === 'Admin' ? 'Admin Plan' : 'Customer Plan'}</strong>
-                      </span>
-                    </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+            {results.map((user) => (
+              <div
+                key={user.id}
+                onClick={() => handleCardClick(user)}
+                style={{
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--bg-sidebar)',
+                  padding: '1.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '1rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--primary)';
+                  e.currentTarget.style.backgroundColor = 'var(--bg-card)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border)';
+                  e.currentTarget.style.backgroundColor = 'var(--bg-sidebar)';
+                }}
+              >
+                {/* Profile Pic + Basic Info */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div
+                    style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: '50%',
+                      backgroundColor: 'var(--primary)',
+                      color: '#000',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      fontSize: '1.15rem',
+                      overflow: 'hidden',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {user.photoURL ? (
+                      <img src={user.photoURL} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      user.initials || user.name.charAt(0)
+                    )}
                   </div>
 
-                  {/* Divider */}
-                  <div style={{ height: '1px', backgroundColor: 'var(--border)' }} />
-
-                  {/* Credits & Plan Details Grid */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>CRM Credits Balance</span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: healthColor, backgroundColor: healthBg, padding: '2px 8px', borderRadius: '10px' }}>
-                        {remainingPct}% Remaining ({user.creditHealth || 'Healthy'})
-                      </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{user.name}</div>
+                    <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>{user.email}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: '1px' }}>
+                      ID: {user.employeeId}
                     </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', backgroundColor: 'var(--bg-card)', padding: '0.85rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                      <div>
-                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Available Credits</div>
-                        <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#10b981', marginTop: '0.1rem' }}>{available.toLocaleString()}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Total Credits</div>
-                        <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.1rem' }}>{total.toLocaleString()}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Credits Used</div>
-                        <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-secondary)', marginTop: '0.1rem' }}>{used.toLocaleString()}</div>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar Track */}
-                    <div style={{ height: '8px', width: '100%', backgroundColor: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${Math.min(remainingPct, 100)}%`, backgroundColor: healthColor, transition: 'width 0.4s ease' }} />
-                    </div>
-
-                    {/* Usage & Credits Dashboard (all 11 credit cards for looked-up user) */}
-                    <UsageCreditsDashboard
-                      user={user}
-                      dbUserCredits={{
-                        available: user.creditsAvailable,
-                        total: user.totalCredits,
-                      }}
-                      userName={user.name}
-                    />
                   </div>
                 </div>
-              );
-            })}
+
+                {/* Status + Plan */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.35rem' }}>
+                  <span className={`badge ${user.accountStatus === 'Active' || user.status === 'Active' ? 'badge-success' : 'badge-error'}`} style={{ fontSize: '0.7rem', fontWeight: 700 }}>
+                    {(user.accountStatus || user.status || 'Active').toUpperCase()}
+                  </span>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                    Plan: <strong style={{ color: 'var(--text-primary)' }}>{user.role === 'Admin' ? 'Admin Plan' : 'Customer Plan'}</strong>
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
+    </div>
+  );
+};
+
+/* ==========================================================================
+   COMPONENT: USER CREDIT DETAILS VIEW (/lookup/[identifier])
+   ========================================================================== */
+export interface UserCreditDetailsViewProps {
+  identifier: string;
+  onBack?: () => void;
+}
+
+export const UserCreditDetailsView: React.FC<UserCreditDetailsViewProps> = ({
+  identifier,
+  onBack,
+}) => {
+  const [user, setUser] = useState<TeamMember | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      window.history.pushState({}, '', '/team_lookup');
+      window.dispatchEvent(new Event('popstate'));
+    }
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+    setError(false);
+
+    fetchUserByIdentifierFromApi(identifier)
+      .then((data) => {
+        if (!isMounted) return;
+        if (data) {
+          setUser(data);
+        } else {
+          setError(true);
+        }
+      })
+      .catch((err) => {
+        console.error('Error fetching user credit details:', err);
+        if (isMounted) setError(true);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [identifier]);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '900px', margin: '0 auto', fontFamily: 'var(--font-sans)' }}>
+        <button onClick={handleBack} className="btn btn-secondary" style={{ alignSelf: 'flex-start', padding: '0.4rem 0.8rem', fontSize: '0.82rem', gap: '0.4rem' }}>
+          <ArrowLeft size={14} /> Back to Team Lookup
+        </button>
+
+        <div className="card" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'var(--border)', animation: 'pulse 1.2s infinite' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+              <div style={{ width: '180px', height: '18px', backgroundColor: 'var(--border)', borderRadius: '4px', animation: 'pulse 1.2s infinite' }} />
+              <div style={{ width: '240px', height: '14px', backgroundColor: 'var(--border)', borderRadius: '4px', animation: 'pulse 1.2s infinite' }} />
+            </div>
+          </div>
+          <div style={{ height: '100px', backgroundColor: 'var(--border)', borderRadius: '8px', animation: 'pulse 1.2s infinite', marginTop: '1rem' }} />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !user) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '700px', margin: '2rem auto', fontFamily: 'var(--font-sans)' }}>
+        <button onClick={handleBack} className="btn btn-secondary" style={{ alignSelf: 'flex-start', padding: '0.4rem 0.8rem', fontSize: '0.82rem', gap: '0.4rem' }}>
+          <ArrowLeft size={14} /> Back to Team Lookup
+        </button>
+
+        <div className="card" style={{ padding: '3rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+          <h2 style={{ margin: 0, fontWeight: 800, fontSize: '1.6rem', color: 'var(--text-primary)' }}>User Not Found</h2>
+          <p style={{ margin: 0, fontSize: '0.92rem', color: 'var(--text-muted)', maxWidth: '400px' }}>
+            We couldn't find this teammate.
+          </p>
+          <button onClick={handleBack} className="btn btn-primary" style={{ marginTop: '0.75rem', padding: '0.5rem 1.25rem', fontSize: '0.88rem' }}>
+            ← Back to Team Lookup
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const available = user.creditsAvailable ?? 0;
+  const total = user.totalCredits ?? 0;
+  const used = Math.max(0, total - available);
+  const remainingPct = user.remainingPercentage ?? (total > 0 ? Math.round((available / total) * 100) : 0);
+
+  let healthColor = '#10b981';
+  let healthBg = 'rgba(16, 185, 129, 0.12)';
+  if (user.creditHealth === 'Critical') {
+    healthColor = '#ef4444';
+    healthBg = 'rgba(239, 68, 68, 0.12)';
+  } else if (user.creditHealth === 'Warning') {
+    healthColor = '#f59e0b';
+    healthBg = 'rgba(245, 158, 11, 0.12)';
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '900px', margin: '0 auto', fontFamily: 'var(--font-sans)' }}>
+      {/* ── Back Button ── */}
+      <button
+        onClick={handleBack}
+        className="btn btn-secondary"
+        style={{ alignSelf: 'flex-start', padding: '0.45rem 0.9rem', fontSize: '0.85rem', gap: '0.4rem', fontWeight: 600 }}
+      >
+        <ArrowLeft size={16} /> Back to Team Lookup
+      </button>
+
+      {/* ── Top User Basic Information Header ── */}
+      <div className="card" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              backgroundColor: 'var(--primary)',
+              color: '#000',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 800,
+              fontSize: '1.3rem',
+              overflow: 'hidden',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
+              flexShrink: 0,
+            }}
+          >
+            {user.photoURL ? (
+              <img src={user.photoURL} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              user.initials || user.name.charAt(0)
+            )}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>{user.name}</div>
+            <div style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>{user.email}</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
+              ID: {user.employeeId}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem' }}>
+          <span className={`badge ${user.accountStatus === 'Active' || user.status === 'Active' ? 'badge-success' : 'badge-error'}`} style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+            {(user.accountStatus || user.status || 'Active').toUpperCase()}
+          </span>
+          <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+            Plan: <strong style={{ color: 'var(--text-primary)' }}>{user.role === 'Admin' ? 'Admin Plan' : 'Customer Plan'}</strong>
+          </span>
+        </div>
+      </div>
+
+      {/* ── Credit Summary Section ── */}
+      <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, letterSpacing: '0.05em', color: 'var(--text-primary)', textTransform: 'uppercase' }}>
+            CREDIT SUMMARY
+          </h3>
+          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: healthColor, backgroundColor: healthBg, padding: '3px 10px', borderRadius: '12px' }}>
+            {remainingPct}% Remaining ({user.creditHealth || 'Healthy'})
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', backgroundColor: 'var(--bg-sidebar)', padding: '1.1rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+          <div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Available</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#10b981', marginTop: '0.2rem' }}>{available.toLocaleString()}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Total</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.2rem' }}>{total.toLocaleString()}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Used</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-secondary)', marginTop: '0.2rem' }}>{used.toLocaleString()}</div>
+          </div>
+        </div>
+
+        {/* Overall Progress Bar */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          <div style={{ height: '10px', width: '100%', backgroundColor: 'var(--border)', borderRadius: '5px', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${Math.min(remainingPct, 100)}%`, backgroundColor: healthColor, transition: 'width 0.5s ease' }} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            <span>Overall Usage Progress</span>
+            <span><strong style={{ color: healthColor }}>{remainingPct}% Remaining</strong></span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Usage & Credits Section (all category credit cards) ── */}
+      <UsageCreditsDashboard
+        user={user}
+        dbUserCredits={{
+          available: user.creditsAvailable,
+          total: user.totalCredits,
+        }}
+        userName={user.name}
+      />
     </div>
   );
 };
@@ -754,9 +937,6 @@ export const SettingsPanel: React.FC = () => {
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         <div style={{ marginBottom: '1rem' }}>
           <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Your Profile</h3>
-          <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            Authenticated via Google — profile data is sourced directly from your account.
-          </p>
         </div>
 
         {authUser ? (
