@@ -17,7 +17,7 @@ export const CREDIT_TOOLTIP_DESCRIPTIONS: Record<string, string> = {
   voice_clone_credits:
     'Credits used for cloning a specific voice to create a personalised AI voice model.',
   analysis_credits:
-    'Credits used for AI analysis features such as performance insights and risk analytics. This feature currently has no usage limit — enjoy unlimited analysis.',
+    'Credits used for AI analysis features such as performance insights and risk analytics. This feature currently has no usage limit.',
   ugc_credits:
     'Credits used for generating UGC-style (User Generated Content) creative content with AI avatars.',
   image_credits:
