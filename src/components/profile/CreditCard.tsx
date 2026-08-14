@@ -8,6 +8,8 @@ import {
   VStack,
 } from '@chakra-ui/react';
 import type { LucideIcon } from 'lucide-react';
+import CreditInfoTooltip from './CreditInfoTooltip';
+import { getCreditTooltip } from './creditTooltipDescriptions';
 
 export interface CreditCardItem {
   id: string;
@@ -25,7 +27,8 @@ interface CreditCardProps {
 }
 
 export const CreditCard: React.FC<CreditCardProps> = ({ item }) => {
-  const { name, used, total, isUnlimited, icon: Icon, tooltip, category } = item;
+  const { id, name, used, total, isUnlimited, icon: Icon, category } = item;
+  const tooltipDescription = getCreditTooltip(id, name);
 
   const isUnlimitedMode = Boolean(isUnlimited);
   // Safe calculation: Usage Percentage = (Used / Total) * 100
@@ -86,7 +89,6 @@ export const CreditCard: React.FC<CreditCardProps> = ({ item }) => {
       display="flex"
       flexDirection="column"
       gap={2}
-      title={tooltip}
     >
       {/* Top accent bar */}
       <Box
@@ -117,15 +119,22 @@ export const CreditCard: React.FC<CreditCardProps> = ({ item }) => {
             <Icon size={14} />
           </Flex>
           <VStack align="start" gap={0}>
-            <Text
-              fontSize="11px"
-              fontWeight="700"
-              color="var(--text-primary, #ffffff)"
-              lineHeight="1.2"
-              lineClamp={1}
-            >
-              {name}
-            </Text>
+            {/* Credit name + info tooltip icon on the same baseline */}
+            <HStack gap={1} align="center" wrap="nowrap">
+              <Text
+                fontSize="11px"
+                fontWeight="700"
+                color="var(--text-primary, #ffffff)"
+                lineHeight="1.2"
+                lineClamp={1}
+              >
+                {name}
+              </Text>
+              <CreditInfoTooltip
+                description={tooltipDescription}
+                creditName={name}
+              />
+            </HStack>
             {category && (
               <Text
                 fontSize="9px"
@@ -155,76 +164,100 @@ export const CreditCard: React.FC<CreditCardProps> = ({ item }) => {
         </Badge>
       </Flex>
 
-      {/* Row 2: Used / Total + Remaining */}
-      <Flex align="baseline" justify="space-between" gap={1}>
-        <HStack gap={1} align="baseline">
-          <Text
-            fontSize="sm"
-            fontWeight="800"
-            color="var(--text-primary, #ffffff)"
-            letterSpacing="-0.02em"
-            lineHeight="1"
-          >
-            {isUnlimitedMode ? 'Unlimited' : used.toLocaleString()}
-          </Text>
-          {!isUnlimitedMode && (
-            <Text fontSize="10px" color="var(--text-muted, #889882)" fontWeight="600">
-              / {total.toLocaleString()}
-            </Text>
-          )}
-        </HStack>
-        {!isUnlimitedMode && (
-          <Text fontSize="9px" color="var(--text-muted, #889882)" flexShrink={0}>
-            {remaining.toLocaleString()} remaining
-          </Text>
-        )}
-      </Flex>
+{/* Row 2: Used / Total + Remaining */}
+<Flex
+  align="baseline"
+  justify="space-between"
+  gap={1}
+>
+  <HStack gap={1} align="baseline">
+    <Text
+      fontSize={isUnlimitedMode ? "lg" : "sm"}
+      fontWeight="800"
+      color={
+        isUnlimitedMode
+          ? "#60a5fa"
+          : "var(--text-primary, #ffffff)"
+      }
+      letterSpacing="-0.02em"
+      lineHeight="1"
+    >
+      {isUnlimitedMode
+        ? "Unlimited"
+        : used.toLocaleString()}
+    </Text>
 
-      {/* Row 3: Progress bar or Unlimited pill */}
-      <Box width="100%">
-        {isUnlimitedMode ? (
-          <Flex
-            align="center"
-            justify="center"
-            py={1}
-            px={2}
-            borderRadius="sm"
-            bg="rgba(59, 130, 246, 0.1)"
-            border="1px dashed rgba(59, 130, 246, 0.35)"
-          >
-            <Text fontSize="9px" fontWeight="600" color="#60a5fa">
-              Unlimited
-            </Text>
-          </Flex>
-        ) : (
-          <VStack gap={0.5} align="stretch">
-            <Box
-              h="4px"
-              w="100%"
-              bg="var(--border, #1a2217)"
-              borderRadius="full"
-              overflow="hidden"
-            >
-              <Box
-                h="100%"
-                w={`${percentage}%`}
-                bg={semanticColor}
-                borderRadius="full"
-                transition="width 0.8s ease-in-out"
-              />
-            </Box>
-            <Flex justify="space-between" align="center">
-              <Text fontSize="9px" color="var(--text-muted, #889882)">
-                {statusBadgeText}
-              </Text>
-              <Text fontSize="9px" fontWeight="700" color={semanticColor}>
-                {percentage}% Used
-              </Text>
-            </Flex>
-          </VStack>
-        )}
-      </Box>
+    {!isUnlimitedMode && (
+      <Text
+        fontSize="10px"
+        color="var(--text-muted, #889882)"
+        fontWeight="600"
+      >
+        / {total.toLocaleString()}
+      </Text>
+    )}
+  </HStack>
+
+  {!isUnlimitedMode && (
+    <Text
+      fontSize="10px"
+      color="var(--text-muted, #889882)"
+      fontWeight="600"
+    >
+      {remaining.toLocaleString()} remaining
+    </Text>
+  )}
+</Flex>
+
+{/* Row 3: Progress bar */}
+{!isUnlimitedMode && (
+  <VStack
+    gap={0.5}
+    align="stretch"
+    width="100%"
+  >
+    {/* Progress bar */}
+    <Box
+      h="4px"
+      w="100%"
+      bg="var(--border, #1a2217)"
+      borderRadius="full"
+      overflow="hidden"
+    >
+      <Box
+        h="100%"
+        w={`${percentage}%`}
+        bg={semanticColor}
+        borderRadius="full"
+        transition="width 0.8s ease-in-out"
+      />
     </Box>
+
+    {/* Status + Percentage */}
+    <Flex
+      justify="space-between"
+      align="center"
+    >
+      <Text
+        fontSize="9px"
+        color="var(--text-muted, #889882)"
+      >
+        {statusBadgeText}
+      </Text>
+
+      <Text
+        fontSize="9px"
+        fontWeight="700"
+        color={semanticColor}
+      >
+        {percentage}% Used
+      </Text>
+    </Flex>
+  </VStack>
+)}
+        
+      </Box>
+   
   );
 };
 
