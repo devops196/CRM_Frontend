@@ -1,13 +1,13 @@
 {
-  "name": "crm-Quickads",
+  "name": "crm-quickads",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "oxlint",
-    "preview": "vite preview"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.36.1",
@@ -15,21 +15,15 @@
     "@emotion/styled": "^11.14.1",
     "framer-motion": "^12.42.2",
     "lucide-react": "^1.23.0",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "react-is": "^19.2.7",
+    "next": "^14.2.24",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-is": "^18.3.1",
     "recharts": "^3.9.2"
   },
   "devDependencies": {
-    "@types/node": "^24.13.2",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.3",
     "autoprefixer": "^10.5.2",
-    "oxlint": "^1.71.0",
     "postcss": "^8.5.19",
-    "tailwindcss": "^3.4.19",
-    "typescript": "~6.0.2",
-    "vite": "^8.1.1"
+    "tailwindcss": "^3.4.19"
   }
 }
