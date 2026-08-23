@@ -24,7 +24,7 @@ export const saveTeamMembers = (members) => {
   localStorage.setItem(TEAM_STORAGE_KEY, JSON.stringify(members));
 };
 
-const getBaseUrl = () => (typeof window !== 'undefined' && window.location.origin.includes(':5173') ? 'http://localhost:5001' : '');
+const getBaseUrl = () => (typeof window !== 'undefined' && window.location.origin.includes(':5173') ? 'http://localhost:8000' : '');
 
 /**
  * Fetches team members strictly from the backend API.
@@ -170,22 +170,73 @@ export const removeMemberFromMyTeamApi = async (ownerEmail, targetEmail) => {
   }
 };
 
+/**
+ * Normal user: allocate credits from owner's balance to a teammate.
+ * POST /api/v1/users/team/allocate-credits
+ */
+export const allocateCreditsApi = async (callerEmail, targetIdentifier, allocations) => {
+  try {
+    const baseUrl = getBaseUrl();
+    const res = await fetch(`${baseUrl}/api/v1/users/team/allocate-credits`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ callerEmail, targetIdentifier, allocations }),
+    });
+    const json = await res.json();
+    return {
+      success: res.ok && json.success,
+      message: json.message || json.detail || '',
+      data: json.data ? mapUserDtoToTeamMember(json.data) : null,
+    };
+  } catch (err) {
+    return { success: false, message: err.message || 'Network error.' };
+  }
+};
+
+/**
+ * Admin: add credits directly to any user without touching admin balance.
+ * POST /api/v1/users/team/admin/add-credits
+ */
+export const adminAddCreditsApi = async (callerEmail, targetIdentifier, allocations) => {
+  try {
+    const baseUrl = getBaseUrl();
+    const res = await fetch(`${baseUrl}/api/v1/users/team/admin/add-credits`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ callerEmail, targetIdentifier, allocations }),
+    });
+    const json = await res.json();
+    if (res.status === 403) {
+      return { success: false, message: 'Access denied. Admin credentials required.' };
+    }
+    return {
+      success: res.ok && json.success,
+      message: json.message || json.detail || '',
+      data: json.data ? mapUserDtoToTeamMember(json.data) : null,
+    };
+  } catch (err) {
+    return { success: false, message: err.message || 'Network error.' };
+  }
+};
+
 /** Helper to map user object from DB DTO */
 function mapUserDtoToTeamMember(u) {
-  const total = u.totalCredits ?? 0;
-  const available = u.creditsAvailable ?? 0;
+  const total = u.totalCredits ?? u.generationcreditstotal ?? 0;
+  const available = u.creditsAvailable ?? (total - (u.generationcreditsused ?? 0));
   const used = Math.max(0, total - available);
 
   return {
-    id: u.id,
-    employeeId: u.employeeId,
+    id: u.id || u.uuid,
+    employeeId: u.employeeId || `EMP-${String(u.uuid || u.id || '').slice(0, 8)}`,
     name: u.name,
     email: u.email,
     photoURL: u.picture && u.picture.trim() !== '' ? u.picture : undefined,
     initials: getInitials(u.name),
-    role: u.role === 'ADMIN' ? 'Admin' : 'Customer',
-    status: u.accountStatus === 'ACTIVE' ? 'Active' : 'Inactive',
-    accountStatus: u.accountStatus === 'ACTIVE' ? 'Active' : 'Inactive',
+    role: (u.role || '').toUpperCase() === 'ADMIN' ? 'Admin' : 'Customer',
+    status: (u.accountStatus || '').toUpperCase() === 'ACTIVE' ? 'Active' : 'Inactive',
+    accountStatus: (u.accountStatus || '').toUpperCase() === 'ACTIVE' ? 'Active' : 'Inactive',
     creditsAvailable: available,
     totalCredits: total,
     usagePercentage: u.usagePercentage ?? 0,
@@ -210,7 +261,7 @@ function mapUserDtoToTeamMember(u) {
     ugcCreditsUsed: u.ugcCreditsUsed ?? u.ugccreditsused ?? 0,
     ugcCreditsTotal: u.ugcCreditsTotal ?? u.ugccreditstotal ?? 0,
 
-    imageCreditsUsed: u.imageCreditsUsed ?? u.imagecreditstotal ?? 0,
+    imageCreditsUsed: u.imageCreditsUsed ?? u.imagecreditsused ?? 0,
     imageCreditsTotal: u.imageCreditsTotal ?? u.imagecreditstotal ?? 0,
 
     imageToVideoCreditsUsed: u.imageToVideoCreditsUsed ?? u.imagetovideocreditsused ?? 0,

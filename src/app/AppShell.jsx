@@ -84,17 +84,19 @@ const DashboardShell = ({ currentView, setCurrentView, selectedUserIdentifier, s
 
   const renderSidebarNavs = () => {
     return (
-      <button
-        onClick={() => {
-          if (typeof window !== 'undefined') window.history.pushState({}, '', '/team_lookup');
-          setCurrentView('team_lookup');
-          setMobileMenuOpen(false);
-        }}
-        className={`tab-btn ${currentView === 'team_lookup' || currentView === 'user_credit_details' ? 'active' : ''}`}
-        style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.8rem 1rem', width: '100%', borderBottom: 'none' }}
-      >
-        <Users size={16} /> Team Lookup
-      </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', width: '100%' }}>
+        <button
+          onClick={() => {
+            if (typeof window !== 'undefined') window.history.pushState({}, '', '/team_lookup');
+            setCurrentView('team_lookup');
+            setMobileMenuOpen(false);
+          }}
+          className={`tab-btn ${currentView === 'team_lookup' || currentView === 'user_credit_details' ? 'active' : ''}`}
+          style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.8rem 1rem', width: '100%', borderBottom: 'none', borderRadius: 'var(--radius-sm)' }}
+        >
+          <Users size={16} /> Team Lookup
+        </button>
+      </div>
     );
   };
 
@@ -301,6 +303,8 @@ export function AppShell({ initialView = 'team_lookup', initialUserIdentifier = 
           setSelectedUserIdentifier(id);
           setCurrentView('user_credit_details');
         }
+      } else if (path.startsWith('/profile') || path.startsWith('/settings') || path.startsWith('/team')) {
+        setCurrentView('settings');
       } else if (path === '/team_lookup' || path === '/lookup') {
         setCurrentView('team_lookup');
       }

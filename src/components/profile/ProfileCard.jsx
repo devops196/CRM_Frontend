@@ -6,14 +6,30 @@ import {
   fetchMyTeamFromApi,
   addMemberToMyTeamApi,
   removeMemberFromMyTeamApi,
+  allocateCreditsApi,
 } from '../../services/team.service.js';
 import MemberAvatar from '../team/MemberAvatar.jsx';
+import AllocateCreditsModal from '../team/AllocateCreditsModal.jsx';
 import UsageCreditsDashboard from './UsageCreditsDashboard.jsx';
-import { Calendar, Mail, Shield, Zap, Coins, Loader, UserPlus, UserMinus, Users, Search } from 'lucide-react';
+import { Calendar, Mail, Shield, Zap, Coins, Loader, UserPlus, UserMinus, Users, Search, CheckCircle2 } from 'lucide-react';
+
+const DEFAULT_OWNER_CREDITS = {
+  generationCredits: 20,
+  videoCredits: 10,
+  voiceCredits: 8,
+  voiceCloneCredits: 5,
+  ugcCredits: 15,
+  imageCredits: 12,
+  imageToVideoCredits: 6,
+  analysisCredits: 'Unlimited',
+};
 
 const ProfileCard = ({ authUser }) => {
   const [dbUser, setDbUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Owner available credits state
+  const [ownerCredits, setOwnerCredits] = useState(DEFAULT_OWNER_CREDITS);
 
   // My Team management state
   const [myTeam, setMyTeam] = useState([]);
@@ -22,6 +38,10 @@ const ProfileCard = ({ authUser }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [actionMessage, setActionMessage] = useState(null);
+
+  // Modal State for Credit Allocation
+  const [selectedUserForAllocation, setSelectedUserForAllocation] = useState(null);
+  const [isAllocationModalOpen, setIsAllocationModalOpen] = useState(false);
 
   // Load user profile from DB
   useEffect(() => {
@@ -88,18 +108,59 @@ const ProfileCard = ({ authUser }) => {
     return () => clearTimeout(timer);
   }, [searchQuery, handleSearchDbUsers]);
 
-  // Add member to team
-  const handleAddMember = async (targetEmail) => {
+  // Open Credit Allocation Modal
+  const handleOpenAllocationModal = (user) => {
+    setSelectedUserForAllocation(user);
+    setIsAllocationModalOpen(true);
+  };
+
+  // Confirm Credit Allocation & Add Member
+  const handleConfirmAllocation = async (allocations, targetUser) => {
     setActionMessage(null);
-    const res = await addMemberToMyTeamApi(authUser.email, targetEmail);
-    if (res.success) {
-      setMyTeam(res.team);
-      setSearchQuery('');
-      setSearchResults([]);
-      setActionMessage('Team member added successfully.');
-    } else {
-      setActionMessage(res.message || 'Failed to add team member.');
-    }
+
+    // 1. Deduct allocated credits from owner's credits state
+    setOwnerCredits((prev) => ({
+      ...prev,
+      generationCredits: Math.max(0, prev.generationCredits - (allocations.generationCredits || 0)),
+      videoCredits: Math.max(0, prev.videoCredits - (allocations.videoCredits || 0)),
+      voiceCredits: Math.max(0, prev.voiceCredits - (allocations.voiceCredits || 0)),
+      voiceCloneCredits: Math.max(0, prev.voiceCloneCredits - (allocations.voiceCloneCredits || 0)),
+      ugcCredits: Math.max(0, prev.ugcCredits - (allocations.ugcCredits || 0)),
+      imageCredits: Math.max(0, prev.imageCredits - (allocations.imageCredits || 0)),
+      imageToVideoCredits: Math.max(0, prev.imageToVideoCredits - (allocations.imageToVideoCredits || 0)),
+    }));
+
+    // 2. Call API to register member & allocate credits in DB
+    const res = await addMemberToMyTeamApi(authUser.email, targetUser.email);
+    await allocateCreditsApi(authUser.email, targetUser.employeeId || targetUser.id || targetUser.email, allocations);
+    
+    // 3. Attach allocation data to teammate state
+    const newMemberWithAllocations = {
+      ...targetUser,
+      allocatedCredits: { ...allocations },
+      creditsAvailable: Object.values(allocations).reduce((a, b) => a + (Number(b) || 0), 0),
+      totalCredits: Object.values(allocations).reduce((a, b) => a + (Number(b) || 0), 0),
+      status: 'Active',
+      accountStatus: 'Active',
+    };
+
+    setMyTeam((prev) => {
+      const exists = prev.some((m) => m.email.toLowerCase() === targetUser.email.toLowerCase());
+      if (exists) {
+        return prev.map((m) =>
+          m.email.toLowerCase() === targetUser.email.toLowerCase()
+            ? { ...m, allocatedCredits: { ...allocations } }
+            : m
+        );
+      }
+      return [...prev, newMemberWithAllocations];
+    });
+
+    setSearchQuery('');
+    setSearchResults([]);
+    setActionMessage(`Successfully allocated credits and added ${targetUser.name} to your team.`);
+    setIsAllocationModalOpen(false);
+    setSelectedUserForAllocation(null);
   };
 
   // Remove member from team
@@ -107,7 +168,7 @@ const ProfileCard = ({ authUser }) => {
     setActionMessage(null);
     const res = await removeMemberFromMyTeamApi(authUser.email, targetEmail);
     if (res.success) {
-      setMyTeam(res.team);
+      setMyTeam((prev) => prev.filter((m) => m.email.toLowerCase() !== targetEmail.toLowerCase()));
       setActionMessage('Team member removed.');
     } else {
       setActionMessage(res.message || 'Failed to remove member.');
@@ -123,8 +184,9 @@ const ProfileCard = ({ authUser }) => {
       })
     : 'July 24, 2026';
 
-  const available = dbUser?.creditsAvailable ?? 0;
-  const total = dbUser?.totalCredits ?? 0;
+  // Compute total numeric available credits for logged in owner
+  const available = Object.values(ownerCredits).reduce((acc, val) => acc + (typeof val === 'number' ? val : 0), 0);
+  const total = dbUser?.totalCredits || 76;
   const name = dbUser?.name || authUser?.name;
   const role = dbUser?.role || authUser?.role;
   const status = dbUser?.accountStatus || dbUser?.status || '—';
@@ -148,6 +210,26 @@ const ProfileCard = ({ authUser }) => {
     healthColor = '#f59e0b';
     healthBg = 'rgba(245, 158, 11, 0.12)';
   }
+
+  // Enriched user object for UsageCreditsDashboard
+  const userForDashboard = {
+    ...dbUser,
+    generationCreditsTotal: ownerCredits.generationCredits,
+    generationCreditsUsed: 0,
+    videoCreditsTotal: ownerCredits.videoCredits,
+    videoCreditsUsed: 0,
+    voiceCreditsTotal: ownerCredits.voiceCredits,
+    voiceCreditsUsed: 0,
+    voiceCloneCreditsTotal: ownerCredits.voiceCloneCredits,
+    voiceCloneCreditsUsed: 0,
+    ugcCreditsTotal: ownerCredits.ugcCredits,
+    ugcCreditsUsed: 0,
+    imageCreditsTotal: ownerCredits.imageCredits,
+    imageCreditsUsed: 0,
+    imageToVideoCreditsTotal: ownerCredits.imageToVideoCredits,
+    imageToVideoCreditsUsed: 0,
+    analysisCreditsUnlimited: true,
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '850px', margin: '0 auto' }}>
@@ -214,11 +296,11 @@ const ProfileCard = ({ authUser }) => {
                   <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#10b981' }}>{available.toLocaleString()}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Allocated</div>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Balance</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{total.toLocaleString()}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Credits Used</div>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Allocated / Used</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-secondary)' }}>{used.toLocaleString()} ({usedPct}%)</div>
                 </div>
               </div>
@@ -238,7 +320,7 @@ const ProfileCard = ({ authUser }) => {
           )}
         </div>
 
-        <UsageCreditsDashboard user={dbUser} dbUserCredits={{ available, total }} />
+        <UsageCreditsDashboard user={userForDashboard} dbUserCredits={{ available, total }} />
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
           <ProfileField
@@ -276,8 +358,9 @@ const ProfileCard = ({ authUser }) => {
         </div>
 
         {actionMessage && (
-          <div style={{ padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-sidebar)', border: '1px solid var(--border)', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
-            {actionMessage}
+          <div style={{ padding: '0.55rem 0.85rem', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(204, 255, 0, 0.08)', border: '1px solid rgba(204, 255, 0, 0.25)', fontSize: '0.82rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <CheckCircle2 size={14} style={{ color: 'var(--primary)' }} />
+            <span>{actionMessage}</span>
           </div>
         )}
 
@@ -326,7 +409,7 @@ const ProfileCard = ({ authUser }) => {
                       <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>Added</span>
                     ) : (
                       <button
-                        onClick={() => handleAddMember(user.email)}
+                        onClick={() => handleOpenAllocationModal(user)}
                         className="btn btn-primary"
                         style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem', gap: '0.3rem' }}
                       >
@@ -355,49 +438,110 @@ const ProfileCard = ({ authUser }) => {
             No team members added yet. Search database users above to explicitly add them to your team.
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
             {myTeam.map((member) => (
               <div
                 key={member.id}
                 style={{
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0.75rem 1rem',
+                  flexDirection: 'column',
+                  gap: '0.5rem',
+                  padding: '0.85rem 1rem',
                   backgroundColor: 'var(--bg-sidebar)',
                   border: '1px solid var(--border)',
                   borderRadius: 'var(--radius-sm)',
                   fontSize: '0.85rem',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <MemberAvatar photoURL={member.photoURL ?? undefined} initials={member.initials} name={member.name} size={36} />
-                  <div>
-                    <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{member.name}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      {member.email} • {member.creditsAvailable.toLocaleString()} / {member.totalCredits.toLocaleString()} Credits
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <MemberAvatar photoURL={member.photoURL ?? undefined} initials={member.initials} name={member.name} size={36} />
+                    <div>
+                      <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{member.name}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        {member.email}
+                      </div>
                     </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span className={`badge ${member.status === 'Active' ? 'badge-success' : 'badge-error'}`} style={{ fontSize: '0.65rem' }}>
+                      {member.status || 'Active'}
+                    </span>
+                    <button
+                      onClick={() => handleRemoveMember(member.email)}
+                      className="btn btn-secondary"
+                      style={{ padding: '0.3rem 0.6rem', fontSize: '0.72rem', color: 'var(--error)', borderColor: 'var(--border)' }}
+                      title="Remove from team"
+                    >
+                      <UserMinus size={12} /> Remove
+                    </button>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <span className={`badge ${member.status === 'Active' ? 'badge-success' : 'badge-error'}`} style={{ fontSize: '0.65rem' }}>
-                    {member.status}
-                  </span>
-                  <button
-                    onClick={() => handleRemoveMember(member.email)}
-                    className="btn btn-secondary"
-                    style={{ padding: '0.3rem 0.6rem', fontSize: '0.72rem', color: 'var(--error)', borderColor: 'var(--border)' }}
-                    title="Remove from team"
-                  >
-                    <UserMinus size={12} /> Remove
-                  </button>
-                </div>
+                {/* Display Allocated Credit Breakdown for Teammate */}
+                {member.allocatedCredits && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', paddingTop: '0.3rem', borderTop: '1px dashed var(--border)' }}>
+                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600 }}>Allocated:</span>
+                    {member.allocatedCredits.generationCredits > 0 && (
+                      <span className="badge badge-primary" style={{ fontSize: '0.65rem', backgroundColor: 'rgba(204,255,0,0.1)', color: '#ccff00', border: '1px solid rgba(204,255,0,0.25)' }}>
+                        Gen: {member.allocatedCredits.generationCredits}
+                      </span>
+                    )}
+                    {member.allocatedCredits.videoCredits > 0 && (
+                      <span className="badge badge-info" style={{ fontSize: '0.65rem', backgroundColor: 'rgba(99,102,241,0.1)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.25)' }}>
+                        Video: {member.allocatedCredits.videoCredits}
+                      </span>
+                    )}
+                    {member.allocatedCredits.voiceCredits > 0 && (
+                      <span className="badge badge-info" style={{ fontSize: '0.65rem', backgroundColor: 'rgba(6,182,212,0.1)', color: '#22d3ee', border: '1px solid rgba(6,182,212,0.25)' }}>
+                        Voice: {member.allocatedCredits.voiceCredits}
+                      </span>
+                    )}
+                    {member.allocatedCredits.voiceCloneCredits > 0 && (
+                      <span className="badge badge-warning" style={{ fontSize: '0.65rem', backgroundColor: 'rgba(168,85,247,0.1)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.25)' }}>
+                        Clone: {member.allocatedCredits.voiceCloneCredits}
+                      </span>
+                    )}
+                    {member.allocatedCredits.ugcCredits > 0 && (
+                      <span className="badge badge-warning" style={{ fontSize: '0.65rem', backgroundColor: 'rgba(245,158,11,0.1)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.25)' }}>
+                        UGC: {member.allocatedCredits.ugcCredits}
+                      </span>
+                    )}
+                    {member.allocatedCredits.imageCredits > 0 && (
+                      <span className="badge badge-success" style={{ fontSize: '0.65rem', backgroundColor: 'rgba(16,185,129,0.1)', color: '#34d399', border: '1px solid rgba(16,185,129,0.25)' }}>
+                        Image: {member.allocatedCredits.imageCredits}
+                      </span>
+                    )}
+                    {member.allocatedCredits.imageToVideoCredits > 0 && (
+                      <span className="badge badge-primary" style={{ fontSize: '0.65rem', backgroundColor: 'rgba(236,72,153,0.1)', color: '#f472b6', border: '1px solid rgba(236,72,153,0.25)' }}>
+                        Img-to-Vid: {member.allocatedCredits.imageToVideoCredits}
+                      </span>
+                    )}
+                    <span className="badge badge-info" style={{ fontSize: '0.65rem', backgroundColor: 'rgba(96,165,250,0.1)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.25)' }}>
+                      Analysis: Unlimited
+                    </span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Credit Allocation Modal */}
+      {selectedUserForAllocation && (
+        <AllocateCreditsModal
+          isOpen={isAllocationModalOpen}
+          onClose={() => {
+            setIsAllocationModalOpen(false);
+            setSelectedUserForAllocation(null);
+          }}
+          targetUser={selectedUserForAllocation}
+          ownerAvailableCredits={ownerCredits}
+          onConfirmAllocation={handleConfirmAllocation}
+        />
+      )}
     </div>
   );
 };
@@ -417,3 +561,4 @@ const ProfileField = ({ icon, label, value }) => (
 );
 
 export default ProfileCard;
+

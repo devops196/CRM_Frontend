@@ -60,7 +60,7 @@ export const LoginAttemptsTable = () => {
   const fetchAttempts = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:5001/api/v1/auth/login-attempts');
+      const res = await fetch('http://localhost:8000/api/v1/auth/login-attempts');
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.attempts)) {

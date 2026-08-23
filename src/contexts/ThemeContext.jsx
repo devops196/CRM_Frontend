@@ -9,7 +9,7 @@ export const ThemeProvider = ({ children }) => {
     if (typeof window === 'undefined') return 'dark';
     const saved = localStorage.getItem('theme');
     if (saved === 'light' || saved === 'dark') return saved;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return 'dark';
   });
 
   useEffect(() => {

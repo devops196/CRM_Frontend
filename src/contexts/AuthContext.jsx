@@ -55,7 +55,7 @@ export const AuthProvider = ({ children }) => {
           orgName: baseUser.orgName,
           name: found.name,
           photoURL: dbPhotoURL,
-          role: found.role === 'Admin' ? 'Admin' : 'Customer',
+          role: (found.role || '').toUpperCase() === 'ADMIN' ? 'Admin' : 'Customer',
           status: found.accountStatus === 'Active' ? 'Active' : 'Inactive',
           creditsAvailable: found.creditsAvailable,
           totalCredits: found.totalCredits,
@@ -75,26 +75,43 @@ export const AuthProvider = ({ children }) => {
     return baseUser;
   }, []);
 
-  // On mount — restore session identity from localStorage, then fetch fresh DB data
+  // On mount — restore session identity from localStorage or default dev user
   useEffect(() => {
-    const savedUser = loadUserSession();
-    if (savedUser) {
-      const identityOnly = {
-        uid: savedUser.uid,
-        email: savedUser.email,
-        name: savedUser.name,
-        initials: savedUser.initials,
-        memberSince: savedUser.memberSince,
-        orgName: savedUser.orgName,
-        role: savedUser.role,
-        status: savedUser.status,
+    let savedUser = loadUserSession();
+    if (!savedUser) {
+      savedUser = {
+        uid: 'dev_dhanush',
+        name: 'Dhanush',
+        email: 'dhanush@quickads.ai',
+        photoURL: undefined,
+        initials: 'D',
+        role: 'Admin',
+        status: 'Active',
+        memberSince: new Date().toISOString(),
+        orgName: 'QuickAds',
+        creditsAvailable: 76,
+        totalCredits: 76,
       };
-      setAuthUser(identityOnly);
-      setUser(mapToLegacyUser(identityOnly));
-      setIsLoggedIn(true);
-
-      syncWithDb(savedUser);
+      saveUserSession(savedUser);
     }
+
+    const identityOnly = {
+      uid: savedUser.uid,
+      email: savedUser.email,
+      name: savedUser.name,
+      initials: savedUser.initials,
+      memberSince: savedUser.memberSince,
+      orgName: savedUser.orgName,
+      role: savedUser.role,
+      status: savedUser.status,
+      creditsAvailable: savedUser.creditsAvailable || 76,
+      totalCredits: savedUser.totalCredits || 76,
+    };
+    setAuthUser(identityOnly);
+    setUser(mapToLegacyUser(identityOnly));
+    setIsLoggedIn(true);
+
+    syncWithDb(savedUser);
   }, [syncWithDb]);
 
   // Initialize Google Identity Services script
@@ -130,7 +147,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      const response = await fetch('http://localhost:5001/api/v1/auth/google', {
+      const response = await fetch('http://localhost:8000/api/v1/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken: credential }),

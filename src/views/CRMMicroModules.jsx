@@ -3,10 +3,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useCRMState } from '../contexts/CRMStateContext.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
-import { Trash2, Sparkles, Mail, Phone, MessageSquare, Play, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Trash2, Sparkles, Mail, Phone, MessageSquare, Play, ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import ProfileCard from '../components/profile/ProfileCard.jsx';
 import UsageCreditsDashboard from '../components/profile/UsageCreditsDashboard.jsx';
-import { fetchTeamMembersFromApi, fetchUserByIdentifierFromApi } from '../services/team.service.js';
+import AllocateCreditsModal from '../components/team/AllocateCreditsModal.jsx';
+import AdminAddCreditsModal from '../components/team/AdminAddCreditsModal.jsx';
+import { fetchTeamMembersFromApi, fetchUserByIdentifierFromApi, allocateCreditsApi, adminAddCreditsApi } from '../services/team.service.js';
 
 /* ==========================================================================
    COMPONENT: CUSTOMERS DIRECTORY
@@ -508,10 +510,31 @@ export const TaskList = () => {
 };
 
 export const TeamLookupView = ({ onSelectUser }) => {
+  const { authUser } = useAuth();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+
+  // Credit modal state
+  const [selectedForCredits, setSelectedForCredits] = useState(null);
+  const [isAllocateModalOpen, setIsAllocateModalOpen] = useState(false);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState(null);
+
+  // Determine if logged-in user is admin
+  const isAdmin = ['admin', 'ADMIN', 'Admin'].includes(authUser?.role || '');
+
+  // Owner available credits for the normal user modal
+  const ownerAvailableCredits = {
+    generationCredits: authUser?.generationCreditsTotal ? Math.max(0, authUser.generationCreditsTotal - (authUser.generationCreditsUsed || 0)) : 20,
+    videoCredits: authUser?.videoCreditsTotal ? Math.max(0, authUser.videoCreditsTotal - (authUser.videoCreditsUsed || 0)) : 10,
+    voiceCredits: authUser?.voiceCreditsTotal ? Math.max(0, authUser.voiceCreditsTotal - (authUser.voiceCreditsUsed || 0)) : 8,
+    voiceCloneCredits: authUser?.voiceCloneCreditsTotal ? Math.max(0, authUser.voiceCloneCreditsTotal - (authUser.voiceCloneCreditsUsed || 0)) : 5,
+    ugcCredits: authUser?.ugcCreditsTotal ? Math.max(0, authUser.ugcCreditsTotal - (authUser.ugcCreditsUsed || 0)) : 15,
+    imageCredits: authUser?.imageCreditsTotal ? Math.max(0, authUser.imageCreditsTotal - (authUser.imageCreditsUsed || 0)) : 12,
+    imageToVideoCredits: authUser?.imageToVideoCreditsTotal ? Math.max(0, authUser.imageToVideoCreditsTotal - (authUser.imageToVideoCreditsUsed || 0)) : 6,
+  };
 
   const handleSearch = useCallback(async (searchQuery) => {
     const trimmed = searchQuery.trim();
@@ -520,7 +543,6 @@ export const TeamLookupView = ({ onSelectUser }) => {
       setHasSearched(false);
       return;
     }
-
     setLoading(true);
     setHasSearched(true);
     try {
@@ -536,27 +558,65 @@ export const TeamLookupView = ({ onSelectUser }) => {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (query.trim()) {
-        handleSearch(query);
-      } else {
-        setResults([]);
-        setHasSearched(false);
-      }
+      if (query.trim()) handleSearch(query);
+      else { setResults([]); setHasSearched(false); }
     }, 300);
-
     return () => clearTimeout(timer);
   }, [query, handleSearch]);
 
+  // When a user card is clicked — open the appropriate modal
   const handleCardClick = (user) => {
-    if (onSelectUser) {
-      onSelectUser(user);
+    setSuccessMessage(null);
+    if (isAdmin) {
+      setSelectedForCredits(user);
+      setIsAdminModalOpen(true);
     } else {
-      const identifier = user.employeeId || user.id || user.email;
-      if (typeof window !== 'undefined') {
-        window.history.pushState({}, '', `/lookup/${identifier}`);
-        window.dispatchEvent(new Event('popstate'));
+      if (onSelectUser) {
+        onSelectUser(user);
+      } else {
+        setSelectedForCredits(user);
+        setIsAllocateModalOpen(true);
       }
     }
+  };
+
+  // Normal user: allocate credits from own balance
+  const handleConfirmAllocation = async (allocations, targetUser) => {
+    const callerEmail = authUser?.email || 'dhanush@quickads.ai';
+    const targetId = targetUser.employeeId || targetUser.id || targetUser.email;
+    const result = await allocateCreditsApi(callerEmail, targetId, allocations);
+    if (result.success) {
+      setSuccessMessage(`Credits successfully allocated to ${targetUser.name}.`);
+      if (result.data) {
+        setResults((prev) =>
+          prev.map((u) => (u.id === targetUser.id || u.employeeId === targetUser.employeeId) ? { ...u, ...result.data } : u)
+        );
+      }
+    } else {
+      setSuccessMessage(`Error: ${result.message || 'Failed to allocate credits.'}`);
+    }
+    setIsAllocateModalOpen(false);
+    setSelectedForCredits(null);
+  };
+
+  // Admin: add credits directly
+  const handleConfirmAdminAddCredits = async (additions, targetUser) => {
+    const callerEmail = authUser?.email || 'dhanush@quickads.ai';
+    const targetId = targetUser.employeeId || targetUser.id || targetUser.email;
+    const result = await adminAddCreditsApi(callerEmail, targetId, additions);
+    if (result.success) {
+      setSuccessMessage(`Credits successfully added to ${targetUser.name}.`);
+      // Update that user's balance in results list
+      if (result.data) {
+        setResults((prev) =>
+          prev.map((u) => (u.id === targetUser.id || u.employeeId === targetUser.employeeId) ? { ...u, ...result.data } : u)
+        );
+      }
+    } else {
+      setSuccessMessage(`Error: ${result.message || 'Failed to add credits.'}`);
+    }
+    setIsAdminModalOpen(false);
+    setSelectedForCredits(null);
   };
 
   return (
@@ -564,19 +624,54 @@ export const TeamLookupView = ({ onSelectUser }) => {
       <div>
         <h2 style={{ margin: 0, fontWeight: 800, fontSize: '1.75rem', letterSpacing: '-0.02em' }}>TEAM LOOKUP</h2>
         <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-          Search for teammates directly from the database and click to view detailed credit information.
+          {isAdmin
+            ? 'Admin mode — search any user and manage their credits directly.'
+            : 'Search for teammates to view credit info or allocate credits.'}
         </p>
+        {isAdmin && (
+          <span
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+              marginTop: '0.5rem', padding: '3px 10px', borderRadius: '12px',
+              fontSize: '0.72rem', fontWeight: 700,
+              color: '#a78bfa',
+              backgroundColor: 'rgba(139,92,246,0.12)',
+              border: '1px solid rgba(139,92,246,0.3)',
+            }}
+          >
+            ⬡ ADMIN MODE — Click any user to manage their credits
+          </span>
+        )}
       </div>
+
+      {successMessage && (
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.6rem',
+            padding: '0.75rem 1rem',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: successMessage.startsWith('Error')
+              ? 'rgba(239,68,68,0.08)'
+              : 'rgba(16,185,129,0.08)',
+            border: `1px solid ${successMessage.startsWith('Error') ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
+            fontSize: '0.85rem',
+            color: successMessage.startsWith('Error') ? '#f87171' : 'var(--text-primary)',
+          }}
+        >
+          <CheckCircle2 size={16} style={{ color: successMessage.startsWith('Error') ? '#f87171' : '#10b981', flexShrink: 0 }} />
+          {successMessage}
+        </div>
+      )}
 
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1.5rem' }}>
         <div className="form-group" style={{ marginBottom: 0 }}>
           <label className="form-label" style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.4rem' }}>
-            Search teammate...
+            {isAdmin ? 'Search any user...' : 'Search teammate...'}
           </label>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <input
               type="text"
-              placeholder="Search teammate..."
+              placeholder={isAdmin ? 'Search by name, email, or Employee ID...' : 'Search teammate...'}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="form-input"
@@ -596,7 +691,9 @@ export const TeamLookupView = ({ onSelectUser }) => {
 
         {!hasSearched && !loading && (
           <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem', border: '1px dashed var(--border)', borderRadius: 'var(--radius-sm)' }}>
-            Search teammate by name, email, or Employee ID to view profile cards.
+            {isAdmin
+              ? 'Search any user by name, email, or Employee ID to manage their credits.'
+              : 'Search teammate by name, email, or Employee ID to view profile cards.'}
           </div>
         )}
 
@@ -631,7 +728,7 @@ export const TeamLookupView = ({ onSelectUser }) => {
                   transition: 'all 0.2s ease',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--primary)';
+                  e.currentTarget.style.borderColor = isAdmin ? '#8b5cf6' : 'var(--primary)';
                   e.currentTarget.style.backgroundColor = 'var(--bg-card)';
                 }}
                 onMouseLeave={(e) => {
@@ -642,19 +739,12 @@ export const TeamLookupView = ({ onSelectUser }) => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <div
                     style={{
-                      width: '48px',
-                      height: '48px',
-                      borderRadius: '50%',
-                      backgroundColor: 'var(--primary)',
-                      color: '#000',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 700,
-                      fontSize: '1.15rem',
-                      overflow: 'hidden',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-                      flexShrink: 0,
+                      width: '48px', height: '48px', borderRadius: '50%',
+                      backgroundColor: isAdmin ? '#8b5cf6' : 'var(--primary)',
+                      color: isAdmin ? '#fff' : '#000',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontWeight: 700, fontSize: '1.15rem',
+                      overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', flexShrink: 0,
                     }}
                   >
                     {user.photoURL ? (
@@ -665,8 +755,8 @@ export const TeamLookupView = ({ onSelectUser }) => {
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{user.name}</div>
-                    <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>{user.email}</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>{user.name}</div>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{user.email}</div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: '1px' }}>
                       ID: {user.employeeId}
                     </div>
@@ -677,15 +767,49 @@ export const TeamLookupView = ({ onSelectUser }) => {
                   <span className={`badge ${user.accountStatus === 'Active' || user.status === 'Active' ? 'badge-success' : 'badge-error'}`} style={{ fontSize: '0.7rem', fontWeight: 700 }}>
                     {(user.accountStatus || user.status || 'Active').toUpperCase()}
                   </span>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                    Plan: <strong style={{ color: 'var(--text-primary)' }}>{user.role === 'Admin' ? 'Admin Plan' : 'Customer Plan'}</strong>
-                  </span>
+                  {isAdmin ? (
+                    <span
+                      style={{
+                        fontSize: '0.7rem', fontWeight: 700, color: '#a78bfa',
+                        backgroundColor: 'rgba(139,92,246,0.1)',
+                        border: '1px solid rgba(139,92,246,0.3)',
+                        padding: '2px 8px', borderRadius: '8px',
+                      }}
+                    >
+                      Manage Credits →
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                      Plan: <strong style={{ color: 'var(--text-primary)' }}>{user.role === 'Admin' ? 'Admin Plan' : 'Customer Plan'}</strong>
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Normal user — Allocate Credits Modal */}
+      {!isAdmin && selectedForCredits && (
+        <AllocateCreditsModal
+          isOpen={isAllocateModalOpen}
+          onClose={() => { setIsAllocateModalOpen(false); setSelectedForCredits(null); }}
+          targetUser={selectedForCredits}
+          ownerAvailableCredits={ownerAvailableCredits}
+          onConfirmAllocation={handleConfirmAllocation}
+        />
+      )}
+
+      {/* Admin — Manage User Credits Modal */}
+      {isAdmin && selectedForCredits && (
+        <AdminAddCreditsModal
+          isOpen={isAdminModalOpen}
+          onClose={() => { setIsAdminModalOpen(false); setSelectedForCredits(null); }}
+          targetUser={selectedForCredits}
+          onConfirmAddCredits={handleConfirmAdminAddCredits}
+        />
+      )}
     </div>
   );
 };
@@ -694,9 +818,26 @@ export const TeamLookupView = ({ onSelectUser }) => {
    COMPONENT: USER CREDIT DETAILS VIEW (/lookup/[identifier])
    ========================================================================== */
 export const UserCreditDetailsView = ({ identifier, onBack }) => {
+  const { authUser } = useAuth();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  const [isAllocateModalOpen, setIsAllocateModalOpen] = useState(false);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [actionMessage, setActionMessage] = useState(null);
+
+  const isAdmin = ['admin', 'ADMIN', 'Admin'].includes(authUser?.role || '');
+
+  const ownerAvailableCredits = {
+    generationCredits: authUser?.generationCreditsTotal ? Math.max(0, authUser.generationCreditsTotal - (authUser.generationCreditsUsed || 0)) : 20,
+    videoCredits: authUser?.videoCreditsTotal ? Math.max(0, authUser.videoCreditsTotal - (authUser.videoCreditsUsed || 0)) : 10,
+    voiceCredits: authUser?.voiceCreditsTotal ? Math.max(0, authUser.voiceCreditsTotal - (authUser.voiceCreditsUsed || 0)) : 8,
+    voiceCloneCredits: authUser?.voiceCloneCreditsTotal ? Math.max(0, authUser.voiceCloneCreditsTotal - (authUser.voiceCloneCreditsUsed || 0)) : 5,
+    ugcCredits: authUser?.ugcCreditsTotal ? Math.max(0, authUser.ugcCreditsTotal - (authUser.ugcCreditsUsed || 0)) : 15,
+    imageCredits: authUser?.imageCreditsTotal ? Math.max(0, authUser.imageCreditsTotal - (authUser.imageCreditsUsed || 0)) : 12,
+    imageToVideoCredits: authUser?.imageToVideoCreditsTotal ? Math.max(0, authUser.imageToVideoCreditsTotal - (authUser.imageToVideoCreditsUsed || 0)) : 6,
+  };
 
   const handleBack = () => {
     if (onBack) {
@@ -707,32 +848,52 @@ export const UserCreditDetailsView = ({ identifier, onBack }) => {
     }
   };
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadUserDetails = useCallback(() => {
     setLoading(true);
     setError(false);
-
     fetchUserByIdentifierFromApi(identifier)
       .then((data) => {
-        if (!isMounted) return;
-        if (data) {
-          setUser(data);
-        } else {
-          setError(true);
-        }
+        if (data) setUser(data);
+        else setError(true);
       })
       .catch((err) => {
         console.error('Error fetching user credit details:', err);
-        if (isMounted) setError(true);
+        setError(true);
       })
       .finally(() => {
-        if (isMounted) setLoading(false);
+        setLoading(false);
       });
-
-    return () => {
-      isMounted = false;
-    };
   }, [identifier]);
+
+  useEffect(() => {
+    loadUserDetails();
+  }, [loadUserDetails]);
+
+  const handleConfirmAllocation = async (allocations, targetUser) => {
+    const callerEmail = authUser?.email || 'dhanush@quickads.ai';
+    const targetId = targetUser.employeeId || targetUser.id || targetUser.email;
+    const result = await allocateCreditsApi(callerEmail, targetId, allocations);
+    if (result.success && result.data) {
+      setUser(result.data);
+      setActionMessage(`Credits successfully allocated to ${targetUser.name}.`);
+    } else {
+      setActionMessage(`Error: ${result.message || 'Failed to allocate credits.'}`);
+    }
+    setIsAllocateModalOpen(false);
+  };
+
+  const handleConfirmAdminAddCredits = async (additions, targetUser) => {
+    const callerEmail = authUser?.email || 'dhanush@quickads.ai';
+    const targetId = targetUser.employeeId || targetUser.id || targetUser.email;
+    const result = await adminAddCreditsApi(callerEmail, targetId, additions);
+    if (result.success && result.data) {
+      setUser(result.data);
+      setActionMessage(`Credits successfully added to ${targetUser.name}.`);
+    } else {
+      setActionMessage(`Error: ${result.message || 'Failed to add credits.'}`);
+    }
+    setIsAdminModalOpen(false);
+  };
 
   if (loading) {
     return (
@@ -800,6 +961,25 @@ export const UserCreditDetailsView = ({ identifier, onBack }) => {
         <ArrowLeft size={16} /> Back to Team Lookup
       </button>
 
+      {actionMessage && (
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.6rem',
+            padding: '0.75rem 1rem',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: actionMessage.startsWith('Error')
+              ? 'rgba(239,68,68,0.08)'
+              : 'rgba(16,185,129,0.08)',
+            border: `1px solid ${actionMessage.startsWith('Error') ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
+            fontSize: '0.85rem',
+            color: actionMessage.startsWith('Error') ? '#f87171' : 'var(--text-primary)',
+          }}
+        >
+          <CheckCircle2 size={16} style={{ color: actionMessage.startsWith('Error') ? '#f87171' : '#10b981', flexShrink: 0 }} />
+          {actionMessage}
+        </div>
+      )}
+
       <div className="card" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div
@@ -807,8 +987,8 @@ export const UserCreditDetailsView = ({ identifier, onBack }) => {
               width: '56px',
               height: '56px',
               borderRadius: '50%',
-              backgroundColor: 'var(--primary)',
-              color: '#000',
+              backgroundColor: isAdmin ? '#8b5cf6' : 'var(--primary)',
+              color: isAdmin ? '#fff' : '#000',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -835,13 +1015,33 @@ export const UserCreditDetailsView = ({ identifier, onBack }) => {
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
           <span className={`badge ${user.accountStatus === 'Active' || user.status === 'Active' ? 'badge-success' : 'badge-error'}`} style={{ fontSize: '0.75rem', fontWeight: 700 }}>
             {(user.accountStatus || user.status || 'Active').toUpperCase()}
           </span>
           <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
             Plan: <strong style={{ color: 'var(--text-primary)' }}>{user.role === 'Admin' ? 'Admin Plan' : 'Customer Plan'}</strong>
           </span>
+          <button
+            onClick={() => isAdmin ? setIsAdminModalOpen(true) : setIsAllocateModalOpen(true)}
+            style={{
+              padding: '0.5rem 1rem',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              borderRadius: '8px',
+              backgroundColor: isAdmin ? '#8b5cf6' : 'var(--primary)',
+              color: isAdmin ? '#fff' : '#000',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+              marginTop: '0.2rem',
+            }}
+          >
+            {isAdmin ? '⚡ Manage Credits' : '➕ Allocate Credits'}
+          </button>
         </div>
       </div>
 
@@ -889,6 +1089,27 @@ export const UserCreditDetailsView = ({ identifier, onBack }) => {
         }}
         userName={user.name}
       />
+
+      {/* Normal user — Allocate Credits Modal */}
+      {!isAdmin && (
+        <AllocateCreditsModal
+          isOpen={isAllocateModalOpen}
+          onClose={() => setIsAllocateModalOpen(false)}
+          targetUser={user}
+          ownerAvailableCredits={ownerAvailableCredits}
+          onConfirmAllocation={handleConfirmAllocation}
+        />
+      )}
+
+      {/* Admin — Manage User Credits Modal */}
+      {isAdmin && (
+        <AdminAddCreditsModal
+          isOpen={isAdminModalOpen}
+          onClose={() => setIsAdminModalOpen(false)}
+          targetUser={user}
+          onConfirmAddCredits={handleConfirmAdminAddCredits}
+        />
+      )}
     </div>
   );
 };
