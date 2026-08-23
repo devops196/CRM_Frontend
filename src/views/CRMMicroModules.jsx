@@ -623,25 +623,7 @@ export const TeamLookupView = ({ onSelectUser }) => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '800px', margin: '0 auto', fontFamily: 'var(--font-sans)' }}>
       <div>
         <h2 style={{ margin: 0, fontWeight: 800, fontSize: '1.75rem', letterSpacing: '-0.02em' }}>TEAM LOOKUP</h2>
-        <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-          {isAdmin
-            ? 'Admin mode — search any user and manage their credits directly.'
-            : 'Search for teammates to view credit info or allocate credits.'}
-        </p>
-        {isAdmin && (
-          <span
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-              marginTop: '0.5rem', padding: '3px 10px', borderRadius: '12px',
-              fontSize: '0.72rem', fontWeight: 700,
-              color: '#a78bfa',
-              backgroundColor: 'rgba(139,92,246,0.12)',
-              border: '1px solid rgba(139,92,246,0.3)',
-            }}
-          >
-            ⬡ ADMIN MODE — Click any user to manage their credits
-          </span>
-        )}
+        
       </div>
 
       {successMessage && (
