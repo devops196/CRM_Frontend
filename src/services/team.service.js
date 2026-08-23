@@ -221,6 +221,33 @@ export const adminAddCreditsApi = async (callerEmail, targetIdentifier, allocati
   }
 };
 
+/**
+ * Admin: update or set credit balances for any user directly in the database.
+ * POST /api/v1/users/team/admin/update-credits
+ */
+export const adminUpdateCreditsApi = async (callerEmail, targetIdentifier, creditUpdates, mode = 'add', resetUsed = false) => {
+  try {
+    const baseUrl = getBaseUrl();
+    const res = await fetch(`${baseUrl}/api/v1/users/team/admin/update-credits`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ callerEmail, targetIdentifier, creditUpdates, mode, resetUsed }),
+    });
+    const json = await res.json();
+    if (res.status === 403) {
+      return { success: false, message: 'Access denied. Admin authorization required.' };
+    }
+    return {
+      success: res.ok && json.success,
+      message: json.message || json.detail || '',
+      data: json.data ? mapUserDtoToTeamMember(json.data) : null,
+    };
+  } catch (err) {
+    return { success: false, message: err.message || 'Network error updating user credits.' };
+  }
+};
+
 /** Helper to map user object from DB DTO */
 function mapUserDtoToTeamMember(u) {
   const total = u.totalCredits ?? u.generationcreditstotal ?? 0;

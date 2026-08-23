@@ -43,23 +43,44 @@ const ProfileCard = ({ authUser }) => {
   const [selectedUserForAllocation, setSelectedUserForAllocation] = useState(null);
   const [isAllocationModalOpen, setIsAllocationModalOpen] = useState(false);
 
+  // Helper to sync owner credits state from DB user object
+  const syncOwnerCreditsFromDbUser = useCallback((userObj) => {
+    if (!userObj) return;
+    setDbUser(userObj);
+    const availGen = userObj.creditsAvailable ?? userObj.totalCredits ?? 20;
+    setOwnerCredits({
+      generationCredits: availGen,
+      videoCredits: Math.max(0, (userObj.videoCreditsTotal ?? 10) - (userObj.videoCreditsUsed ?? 0)),
+      voiceCredits: Math.max(0, (userObj.voiceCreditsTotal ?? 10) - (userObj.voiceCreditsUsed ?? 0)),
+      voiceCloneCredits: Math.max(0, (userObj.voiceCloneCreditsTotal ?? 5) - (userObj.voiceCloneCreditsUsed ?? 0)),
+      ugcCredits: Math.max(0, (userObj.ugcCreditsTotal ?? 15) - (userObj.ugcCreditsUsed ?? 0)),
+      imageCredits: Math.max(0, (userObj.imageCreditsTotal ?? 20) - (userObj.imageCreditsUsed ?? 0)),
+      imageToVideoCredits: Math.max(0, (userObj.imageToVideoCreditsTotal ?? 5) - (userObj.imageToVideoCreditsUsed ?? 0)),
+      analysisCredits: 'Unlimited',
+    });
+  }, []);
+
   // Load user profile from DB
-  useEffect(() => {
+  const loadDbUser = useCallback(async () => {
     if (!authUser?.email) return;
     setLoading(true);
-    fetchTeamMembersFromApi({ search: authUser.email })
-      .then((members) => {
-        const list = Array.isArray(members) ? members : [];
-        const match = list.find(
-          (m) => m.email && m.email.toLowerCase() === authUser.email.toLowerCase()
-        );
-        setDbUser(match ?? list[0] ?? null);
-      })
-      .catch((err) => {
-        console.error('Failed to load DB user:', err);
-      })
-      .finally(() => setLoading(false));
-  }, [authUser?.email]);
+    try {
+      const members = await fetchTeamMembersFromApi({ search: authUser.email });
+      const list = Array.isArray(members) ? members : [];
+      const match = list.find(
+        (m) => m.email && m.email.toLowerCase() === authUser.email.toLowerCase()
+      );
+      syncOwnerCreditsFromDbUser(match ?? list[0] ?? null);
+    } catch (err) {
+      console.error('Failed to load DB user:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [authUser?.email, syncOwnerCreditsFromDbUser]);
+
+  useEffect(() => {
+    loadDbUser();
+  }, [loadDbUser]);
 
   // Load explicit Team members from DB
   const loadMyTeam = useCallback(async () => {
@@ -118,47 +139,25 @@ const ProfileCard = ({ authUser }) => {
   const handleConfirmAllocation = async (allocations, targetUser) => {
     setActionMessage(null);
 
-    // 1. Deduct allocated credits from owner's credits state
-    setOwnerCredits((prev) => ({
-      ...prev,
-      generationCredits: Math.max(0, prev.generationCredits - (allocations.generationCredits || 0)),
-      videoCredits: Math.max(0, prev.videoCredits - (allocations.videoCredits || 0)),
-      voiceCredits: Math.max(0, prev.voiceCredits - (allocations.voiceCredits || 0)),
-      voiceCloneCredits: Math.max(0, prev.voiceCloneCredits - (allocations.voiceCloneCredits || 0)),
-      ugcCredits: Math.max(0, prev.ugcCredits - (allocations.ugcCredits || 0)),
-      imageCredits: Math.max(0, prev.imageCredits - (allocations.imageCredits || 0)),
-      imageToVideoCredits: Math.max(0, prev.imageToVideoCredits - (allocations.imageToVideoCredits || 0)),
-    }));
+    const callerEmail = authUser?.email || 'devops@quickads.ai';
+    const targetIdentifier = targetUser.employeeId || targetUser.id || targetUser.email;
 
-    // 2. Call API to register member & allocate credits in DB
-    const res = await addMemberToMyTeamApi(authUser.email, targetUser.email);
-    await allocateCreditsApi(authUser.email, targetUser.employeeId || targetUser.id || targetUser.email, allocations);
-    
-    // 3. Attach allocation data to teammate state
-    const newMemberWithAllocations = {
-      ...targetUser,
-      allocatedCredits: { ...allocations },
-      creditsAvailable: Object.values(allocations).reduce((a, b) => a + (Number(b) || 0), 0),
-      totalCredits: Object.values(allocations).reduce((a, b) => a + (Number(b) || 0), 0),
-      status: 'Active',
-      accountStatus: 'Active',
-    };
+    // 1. Call API to add member to team in DB
+    const addRes = await addMemberToMyTeamApi(callerEmail, targetUser.email);
+    // 2. Call API to allocate credits in DB
+    const allocRes = await allocateCreditsApi(callerEmail, targetIdentifier, allocations);
 
-    setMyTeam((prev) => {
-      const exists = prev.some((m) => m.email.toLowerCase() === targetUser.email.toLowerCase());
-      if (exists) {
-        return prev.map((m) =>
-          m.email.toLowerCase() === targetUser.email.toLowerCase()
-            ? { ...m, allocatedCredits: { ...allocations } }
-            : m
-        );
-      }
-      return [...prev, newMemberWithAllocations];
-    });
+    if (addRes.success || allocRes.success) {
+      setActionMessage(`Successfully allocated credits and added ${targetUser.name} to your team.`);
+      // Re-fetch team and owner credits from DB so state persists across refreshes
+      await loadMyTeam();
+      await loadDbUser();
+    } else {
+      setActionMessage(`Failed: ${allocRes.message || addRes.message || 'Credit allocation error'}`);
+    }
 
     setSearchQuery('');
     setSearchResults([]);
-    setActionMessage(`Successfully allocated credits and added ${targetUser.name} to your team.`);
     setIsAllocationModalOpen(false);
     setSelectedUserForAllocation(null);
   };
@@ -166,10 +165,12 @@ const ProfileCard = ({ authUser }) => {
   // Remove member from team
   const handleRemoveMember = async (targetEmail) => {
     setActionMessage(null);
-    const res = await removeMemberFromMyTeamApi(authUser.email, targetEmail);
+    const callerEmail = authUser?.email || 'devops@quickads.ai';
+    const res = await removeMemberFromMyTeamApi(callerEmail, targetEmail);
     if (res.success) {
-      setMyTeam((prev) => prev.filter((m) => m.email.toLowerCase() !== targetEmail.toLowerCase()));
-      setActionMessage('Team member removed.');
+      setMyTeam(res.team);
+      await loadMyTeam();
+      setActionMessage('Team member removed from your team.');
     } else {
       setActionMessage(res.message || 'Failed to remove member.');
     }

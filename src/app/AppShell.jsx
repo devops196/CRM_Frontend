@@ -11,12 +11,12 @@ import { SuperAdminDashboard } from '../views/SuperAdminDashboard.jsx';
 import { AdminDashboard } from '../views/AdminDashboard.jsx';
 import { CustomerPortal } from '../views/CustomerPortal.jsx';
 import { CustomersList, LeadKanban, CommunicationHub, TaskList, SettingsPanel, TeamLookupView, UserCreditDetailsView } from '../views/CRMMicroModules.jsx';
+import { AdminCreditControlView } from '../views/AdminCreditControlView.jsx';
 
 // Components
 import { FloatingAIAssistant } from '../components/FloatingAIAssistant.jsx';
 import { WorkflowBuilder } from '../components/WorkflowBuilder.jsx';
 import MemberAvatar from '../components/team/MemberAvatar.jsx';
-import CreditControl from '../pages/CreditControl';
 
 // Lucide Icons
 import {
@@ -26,15 +26,18 @@ import {
   Sun,
   Moon,
   LogOut,
-  CreditCard
+  Menu
 } from 'lucide-react';
 
 const DashboardShell = ({ currentView, setCurrentView, selectedUserIdentifier, setSelectedUserIdentifier }) => {
-  const { user, logout } = useAuth();
+  const { authUser, user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { resetDatabase } = useCRMState();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
+  const currentRole = (authUser?.role || user?.role || '').toUpperCase();
+  const isAdmin = currentRole === 'ADMIN';
+
   // Command Palette states
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -66,6 +69,9 @@ const DashboardShell = ({ currentView, setCurrentView, selectedUserIdentifier, s
     if ('team lookup account search'.includes(query)) {
       results.push({ category: 'Navigation', text: 'Open Team Lookup', action: () => { if (typeof window !== 'undefined') window.history.pushState({}, '', '/team_lookup'); setCurrentView('team_lookup'); setCommandPaletteOpen(false); } });
     }
+    if (isAdmin && 'credit control admin'.includes(query)) {
+      results.push({ category: 'Navigation', text: 'Open Credit Control', action: () => { if (typeof window !== 'undefined') window.history.pushState({}, '', '/credit_control'); setCurrentView('credit_control'); setCommandPaletteOpen(false); } });
+    }
     if ('profile settings user account'.includes(query)) {
       results.push({ category: 'Navigation', text: 'Open Your Profile', action: () => { setCurrentView('settings'); setCommandPaletteOpen(false); } });
     }
@@ -86,80 +92,37 @@ const DashboardShell = ({ currentView, setCurrentView, selectedUserIdentifier, s
 
   const renderSidebarNavs = () => {
     return (
-<<<<<<< Updated upstream:src/app/AppShell.jsx
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', width: '100%' }}>
+        {/* Team Lookup */}
         <button
           onClick={() => {
             if (typeof window !== 'undefined') window.history.pushState({}, '', '/team_lookup');
             setCurrentView('team_lookup');
             setMobileMenuOpen(false);
           }}
-          className={`tab-btn ${currentView === 'team_lookup' || currentView === 'user_credit_details' ? 'active' : ''}`}
-          style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.8rem 1rem', width: '100%', borderBottom: 'none', borderRadius: 'var(--radius-sm)' }}
+          className={`tab-btn ${
+            currentView === 'team_lookup' || currentView === 'user_credit_details' ? 'active' : ''
+          }`}
+          style={{
+            textAlign: 'left',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem',
+            padding: '0.8rem 1rem',
+            width: '100%',
+            borderBottom: 'none',
+            borderRadius: 'var(--radius-sm)'
+          }}
         >
           <Users size={16} /> Team Lookup
         </button>
       </div>
-=======
-      <>
-        {/* Team Lookup */}
-        <button
-          onClick={() => {
-            window.history.pushState({}, '', '/team_lookup');
-            setCurrentView('team_lookup');
-            setMobileMenuOpen(false);
-          }}
-          className={`tab-btn ${
-            currentView === 'team_lookup' ||
-            currentView === 'user_credit_details'
-              ? 'active'
-              : ''
-          }`}
-          style={{
-            textAlign: 'left',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.6rem',
-            padding: '0.8rem 1rem',
-            width: '100%',
-            borderBottom: 'none',
-          }}
-        >
-          <Users size={16} /> Team Lookup
-        </button>
-
-        {/* Credit Control */}
-        <button
-          onClick={() => {
-            window.history.pushState({}, '', '/credit_control');
-            setCurrentView('credit_control');
-            setMobileMenuOpen(false);
-          }}
-          className={`tab-btn ${
-            currentView === 'credit_control' ? 'active' : ''
-          }`}
-          style={{
-            textAlign: 'left',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.6rem',
-            padding: '0.8rem 1rem',
-            width: '100%',
-            borderBottom: 'none',
-          }}
-        >
-          <CreditCard size={16} /> Credit Control
-        </button>
-      </>
->>>>>>> Stashed changes:src/App.tsx
     );
   };
 
   return (
     <div className="app-container">
-      <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`} style={{
-        display: mobileMenuOpen ? 'flex' : undefined
-      }}>
+      <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`}>
         <div style={{ height: '70px', padding: '0 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
           <div style={{ width: '26px', height: '26px', backgroundColor: 'var(--primary)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-primary)' }}>
             <Zap size={14} style={{ color: '#000' }} />
@@ -198,9 +161,34 @@ const DashboardShell = ({ currentView, setCurrentView, selectedUserIdentifier, s
         </div>
       </aside>
 
+      {mobileMenuOpen && (
+        <div
+          onClick={() => setMobileMenuOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 90,
+          }}
+        />
+      )}
+
       <div className="main-content">
         <header className="header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button
+              className="btn-icon"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              style={{ display: 'flex' }}
+              title="Toggle Navigation Menu"
+            >
+              <Menu size={18} />
+            </button>
+
             <div
               onClick={() => setCommandPaletteOpen(true)}
               style={{
@@ -267,6 +255,7 @@ const DashboardShell = ({ currentView, setCurrentView, selectedUserIdentifier, s
               }}
             />
           )}
+          {currentView === 'credit_control' && <AdminCreditControlView />}
           {currentView === 'super_admin_dashboard' && <SuperAdminDashboard />}
           {currentView === 'admin_dashboard' && <AdminDashboard />}
           {currentView === 'customer_portal' && <CustomerPortal />}
@@ -377,9 +366,12 @@ export function AppShell({ initialView = 'team_lookup', initialUserIdentifier = 
 
   useEffect(() => {
     if (isLoggedIn && currentView.startsWith('auth_')) {
-<<<<<<< Updated upstream:src/app/AppShell.jsx
       if (typeof window !== 'undefined') {
         const path = window.location.pathname;
+        if (path === '/credit_control') {
+          setCurrentView('credit_control');
+          return;
+        }
         if (path.startsWith('/lookup/')) {
           const id = decodeURIComponent(path.replace('/lookup/', ''));
           if (id) {
@@ -387,19 +379,6 @@ export function AppShell({ initialView = 'team_lookup', initialUserIdentifier = 
             setCurrentView('user_credit_details');
             return;
           }
-=======
-      const path = window.location.pathname;
-      if (path === '/credit_control') {
-        setCurrentView('credit_control');
-        return;
-      }
-      if (path.startsWith('/lookup/')) {
-        const id = decodeURIComponent(path.replace('/lookup/', ''));
-        if (id) {
-          setSelectedUserIdentifier(id);
-          setCurrentView('user_credit_details');
-          return;
->>>>>>> Stashed changes:src/App.tsx
         }
       }
       setCurrentView('team_lookup');
@@ -411,9 +390,12 @@ export function AppShell({ initialView = 'team_lookup', initialUserIdentifier = 
       {currentView.startsWith('auth_') ? (
         <AuthPages
           onAuthSuccess={() => {
-<<<<<<< Updated upstream:src/app/AppShell.jsx
             if (typeof window !== 'undefined') {
               const path = window.location.pathname;
+              if (path === '/credit_control') {
+                setCurrentView('credit_control');
+                return;
+              }
               if (path.startsWith('/lookup/')) {
                 const id = decodeURIComponent(path.replace('/lookup/', ''));
                 if (id) {
@@ -421,19 +403,6 @@ export function AppShell({ initialView = 'team_lookup', initialUserIdentifier = 
                   setCurrentView('user_credit_details');
                   return;
                 }
-=======
-            const path = window.location.pathname;
-            if (path === '/credit_control') {
-              setCurrentView('credit_control');
-              return;
-            }
-            if (path.startsWith('/lookup/')) {
-              const id = decodeURIComponent(path.replace('/lookup/', ''));
-              if (id) {
-                setSelectedUserIdentifier(id);
-                setCurrentView('user_credit_details');
-                return;
->>>>>>> Stashed changes:src/App.tsx
               }
             }
             setCurrentView('team_lookup');
@@ -453,26 +422,6 @@ export function AppShell({ initialView = 'team_lookup', initialUserIdentifier = 
       )}
     </>
   );
-<<<<<<< Updated upstream:src/app/AppShell.jsx
 }
 
 export default AppShell;
-=======
-};
-
-const RootApp: React.FC = () => {
-  return (
-    <ChakraProvider value={defaultSystem}>
-      <ThemeProvider>
-        <CRMStateProvider>
-          <AuthProvider>
-            <AppRouter />
-          </AuthProvider>
-        </CRMStateProvider>
-      </ThemeProvider>
-    </ChakraProvider>
-  );
-};
-
-export default RootApp;
->>>>>>> Stashed changes:src/App.tsx
