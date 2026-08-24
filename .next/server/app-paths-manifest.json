@@ -1,3 +1,4 @@
 {
-  "/team_lookup/page": "app/team_lookup/page.js"
+  "/team_lookup/page": "app/team_lookup/page.js",
+  "/lookup/[identifier]/page": "app/lookup/[identifier]/page.js"
 }

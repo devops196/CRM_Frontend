@@ -26,7 +26,8 @@ import {
   Sun,
   Moon,
   LogOut,
-  Menu
+  Menu,
+  ShieldCheck
 } from 'lucide-react';
 
 const DashboardShell = ({ currentView, setCurrentView, selectedUserIdentifier, setSelectedUserIdentifier }) => {
@@ -333,7 +334,10 @@ const DashboardShell = ({ currentView, setCurrentView, selectedUserIdentifier, s
 };
 
 export function AppShell({ initialView = 'team_lookup', initialUserIdentifier = '' }) {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, authUser, user } = useAuth();
+  const currentRole = (authUser?.role || user?.role || '').toUpperCase();
+  const isAdmin = currentRole === 'ADMIN';
+
   const [currentView, setCurrentView] = useState(initialView);
   const [selectedUserIdentifier, setSelectedUserIdentifier] = useState(initialUserIdentifier);
 
@@ -342,7 +346,12 @@ export function AppShell({ initialView = 'team_lookup', initialUserIdentifier = 
       if (typeof window === 'undefined') return;
       const path = window.location.pathname;
       if (path === '/credit_control') {
-        setCurrentView('credit_control');
+        if (isAdmin) {
+          setCurrentView('credit_control');
+        } else {
+          window.history.pushState({}, '', '/team_lookup');
+          setCurrentView('team_lookup');
+        }
       } else if (path.startsWith('/lookup/')) {
         const id = decodeURIComponent(path.replace('/lookup/', ''));
         if (id) {
@@ -362,14 +371,19 @@ export function AppShell({ initialView = 'team_lookup', initialUserIdentifier = 
       window.addEventListener('popstate', syncRouteFromLocation);
       return () => window.removeEventListener('popstate', syncRouteFromLocation);
     }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     if (isLoggedIn && currentView.startsWith('auth_')) {
       if (typeof window !== 'undefined') {
         const path = window.location.pathname;
         if (path === '/credit_control') {
-          setCurrentView('credit_control');
+          if (isAdmin) {
+            setCurrentView('credit_control');
+          } else {
+            window.history.pushState({}, '', '/team_lookup');
+            setCurrentView('team_lookup');
+          }
           return;
         }
         if (path.startsWith('/lookup/')) {
@@ -383,7 +397,7 @@ export function AppShell({ initialView = 'team_lookup', initialUserIdentifier = 
       }
       setCurrentView('team_lookup');
     }
-  }, [isLoggedIn, currentView]);
+  }, [isLoggedIn, currentView, isAdmin]);
 
   return (
     <>

@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { Search, Loader2, AlertTriangle, Zap, CheckCircle2, ShieldCheck, Coins, Mail } from 'lucide-react';
 import { fetchTeamMembersFromApi } from '../../services/team.service.js';
-import UsageCreditsDashboard from './UsageCreditsDashboard.jsx';
+import dynamic from 'next/dynamic';
+const UsageCreditsDashboard = dynamic(() => import('./UsageCreditsDashboard.jsx'), { ssr: false });
 
 export const AccountLookup = ({ onSearchTrigger }) => {
   const [prefix, setPrefix] = useState('');

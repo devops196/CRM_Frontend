@@ -1,3 +1,5 @@
+'use client';
+
 import AppShell from '../AppShell.jsx';
 
 export default function ProfilePage() {

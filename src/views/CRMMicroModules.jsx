@@ -5,7 +5,8 @@ import { useCRMState } from '../contexts/CRMStateContext.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { Trash2, Sparkles, Mail, Phone, MessageSquare, Play, ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import ProfileCard from '../components/profile/ProfileCard.jsx';
-import UsageCreditsDashboard from '../components/profile/UsageCreditsDashboard.jsx';
+import dynamic from 'next/dynamic';
+const UsageCreditsDashboard = dynamic(() => import('../components/profile/UsageCreditsDashboard.jsx'), { ssr: false });
 import AllocateCreditsModal from '../components/team/AllocateCreditsModal.jsx';
 import AdminAddCreditsModal from '../components/team/AdminAddCreditsModal.jsx';
 import { fetchTeamMembersFromApi, fetchUserByIdentifierFromApi, allocateCreditsApi, adminAddCreditsApi } from '../services/team.service.js';
@@ -516,25 +517,10 @@ export const TeamLookupView = ({ onSelectUser }) => {
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  // Credit modal state
-  const [selectedForCredits, setSelectedForCredits] = useState(null);
-  const [isAllocateModalOpen, setIsAllocateModalOpen] = useState(false);
-  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState(null);
 
   // Determine if logged-in user is admin
   const isAdmin = ['admin', 'ADMIN', 'Admin'].includes(authUser?.role || '');
-
-  // Owner available credits for the normal user modal
-  const ownerAvailableCredits = {
-    generationCredits: authUser?.generationCreditsTotal ? Math.max(0, authUser.generationCreditsTotal - (authUser.generationCreditsUsed || 0)) : 20,
-    videoCredits: authUser?.videoCreditsTotal ? Math.max(0, authUser.videoCreditsTotal - (authUser.videoCreditsUsed || 0)) : 10,
-    voiceCredits: authUser?.voiceCreditsTotal ? Math.max(0, authUser.voiceCreditsTotal - (authUser.voiceCreditsUsed || 0)) : 8,
-    voiceCloneCredits: authUser?.voiceCloneCreditsTotal ? Math.max(0, authUser.voiceCloneCreditsTotal - (authUser.voiceCloneCreditsUsed || 0)) : 5,
-    ugcCredits: authUser?.ugcCreditsTotal ? Math.max(0, authUser.ugcCreditsTotal - (authUser.ugcCreditsUsed || 0)) : 15,
-    imageCredits: authUser?.imageCreditsTotal ? Math.max(0, authUser.imageCreditsTotal - (authUser.imageCreditsUsed || 0)) : 12,
-    imageToVideoCredits: authUser?.imageToVideoCreditsTotal ? Math.max(0, authUser.imageToVideoCreditsTotal - (authUser.imageToVideoCreditsUsed || 0)) : 6,
-  };
 
   const handleSearch = useCallback(async (searchQuery) => {
     const trimmed = searchQuery.trim();
@@ -564,59 +550,16 @@ export const TeamLookupView = ({ onSelectUser }) => {
     return () => clearTimeout(timer);
   }, [query, handleSearch]);
 
-  // When a user card is clicked — open the appropriate modal
+  // When a user card is clicked — open credit details in dynamic route (/lookup/[identifier]) for all users
   const handleCardClick = (user) => {
     setSuccessMessage(null);
-    if (isAdmin) {
-      setSelectedForCredits(user);
-      setIsAdminModalOpen(true);
-    } else {
-      if (onSelectUser) {
-        onSelectUser(user);
-      } else {
-        setSelectedForCredits(user);
-        setIsAllocateModalOpen(true);
-      }
+    if (onSelectUser) {
+      onSelectUser(user);
+    } else if (typeof window !== 'undefined') {
+      const identifier = user.employeeId || user.id || user.email;
+      window.history.pushState({}, '', `/lookup/${encodeURIComponent(identifier)}`);
+      window.dispatchEvent(new Event('popstate'));
     }
-  };
-
-  // Normal user: allocate credits from own balance
-  const handleConfirmAllocation = async (allocations, targetUser) => {
-    const callerEmail = authUser?.email || 'dhanush@quickads.ai';
-    const targetId = targetUser.employeeId || targetUser.id || targetUser.email;
-    const result = await allocateCreditsApi(callerEmail, targetId, allocations);
-    if (result.success) {
-      setSuccessMessage(`Credits successfully allocated to ${targetUser.name}.`);
-      if (result.data) {
-        setResults((prev) =>
-          prev.map((u) => (u.id === targetUser.id || u.employeeId === targetUser.employeeId) ? { ...u, ...result.data } : u)
-        );
-      }
-    } else {
-      setSuccessMessage(`Error: ${result.message || 'Failed to allocate credits.'}`);
-    }
-    setIsAllocateModalOpen(false);
-    setSelectedForCredits(null);
-  };
-
-  // Admin: add credits directly
-  const handleConfirmAdminAddCredits = async (additions, targetUser) => {
-    const callerEmail = authUser?.email || 'dhanush@quickads.ai';
-    const targetId = targetUser.employeeId || targetUser.id || targetUser.email;
-    const result = await adminAddCreditsApi(callerEmail, targetId, additions);
-    if (result.success) {
-      setSuccessMessage(`Credits successfully added to ${targetUser.name}.`);
-      // Update that user's balance in results list
-      if (result.data) {
-        setResults((prev) =>
-          prev.map((u) => (u.id === targetUser.id || u.employeeId === targetUser.employeeId) ? { ...u, ...result.data } : u)
-        );
-      }
-    } else {
-      setSuccessMessage(`Error: ${result.message || 'Failed to add credits.'}`);
-    }
-    setIsAdminModalOpen(false);
-    setSelectedForCredits(null);
   };
 
   return (
@@ -749,49 +692,22 @@ export const TeamLookupView = ({ onSelectUser }) => {
                   <span className={`badge ${user.accountStatus === 'Active' || user.status === 'Active' ? 'badge-success' : 'badge-error'}`} style={{ fontSize: '0.7rem', fontWeight: 700 }}>
                     {(user.accountStatus || user.status || 'Active').toUpperCase()}
                   </span>
-                  {isAdmin ? (
-                    <span
-                      style={{
-                        fontSize: '0.7rem', fontWeight: 700, color: '#a78bfa',
-                        backgroundColor: 'rgba(139,92,246,0.1)',
-                        border: '1px solid rgba(139,92,246,0.3)',
-                        padding: '2px 8px', borderRadius: '8px',
-                      }}
-                    >
-                      Manage Credits →
-                    </span>
-                  ) : (
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                      Plan: <strong style={{ color: 'var(--text-primary)' }}>{user.role === 'Admin' ? 'Admin Plan' : 'Customer Plan'}</strong>
-                    </span>
-                  )}
+                  <span
+                    style={{
+                      fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)',
+                      backgroundColor: 'rgba(204, 255, 0, 0.08)',
+                      border: '1px solid var(--border)',
+                      padding: '3px 10px', borderRadius: '8px',
+                    }}
+                  >
+                    View Credit Details →
+                  </span>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
-
-      {/* Normal user — Allocate Credits Modal */}
-      {!isAdmin && selectedForCredits && (
-        <AllocateCreditsModal
-          isOpen={isAllocateModalOpen}
-          onClose={() => { setIsAllocateModalOpen(false); setSelectedForCredits(null); }}
-          targetUser={selectedForCredits}
-          ownerAvailableCredits={ownerAvailableCredits}
-          onConfirmAllocation={handleConfirmAllocation}
-        />
-      )}
-
-      {/* Admin — Manage User Credits Modal */}
-      {isAdmin && selectedForCredits && (
-        <AdminAddCreditsModal
-          isOpen={isAdminModalOpen}
-          onClose={() => { setIsAdminModalOpen(false); setSelectedForCredits(null); }}
-          targetUser={selectedForCredits}
-          onConfirmAddCredits={handleConfirmAdminAddCredits}
-        />
-      )}
     </div>
   );
 };
@@ -1004,26 +920,28 @@ export const UserCreditDetailsView = ({ identifier, onBack }) => {
           <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
             Plan: <strong style={{ color: 'var(--text-primary)' }}>{user.role === 'Admin' ? 'Admin Plan' : 'Customer Plan'}</strong>
           </span>
-          <button
-            onClick={() => isAdmin ? setIsAdminModalOpen(true) : setIsAllocateModalOpen(true)}
-            style={{
-              padding: '0.5rem 1rem',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              borderRadius: '8px',
-              backgroundColor: isAdmin ? '#8b5cf6' : 'var(--primary)',
-              color: isAdmin ? '#fff' : '#000',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-              marginTop: '0.2rem',
-            }}
-          >
-            {isAdmin ? '⚡ Manage Credits' : '➕ Allocate Credits'}
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => setIsAdminModalOpen(true)}
+              style={{
+                padding: '0.5rem 1rem',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                borderRadius: '8px',
+                backgroundColor: '#8b5cf6',
+                color: '#fff',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                marginTop: '0.2rem',
+              }}
+            >
+              ⚡ Manage Credits
+            </button>
+          )}
         </div>
       </div>
 
@@ -1071,17 +989,6 @@ export const UserCreditDetailsView = ({ identifier, onBack }) => {
         }}
         userName={user.name}
       />
-
-      {/* Normal user — Allocate Credits Modal */}
-      {!isAdmin && (
-        <AllocateCreditsModal
-          isOpen={isAllocateModalOpen}
-          onClose={() => setIsAllocateModalOpen(false)}
-          targetUser={user}
-          ownerAvailableCredits={ownerAvailableCredits}
-          onConfirmAllocation={handleConfirmAllocation}
-        />
-      )}
 
       {/* Admin — Manage User Credits Modal */}
       {isAdmin && (

@@ -364,7 +364,17 @@ export function AdminCreditControlView() {
                 return (
                   <tr key={u.id || u.employeeId}>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div
+                        onClick={() => {
+                          const identifier = u.employeeId || u.id || u.email;
+                          if (typeof window !== 'undefined') {
+                            window.history.pushState({}, '', `/lookup/${encodeURIComponent(identifier)}`);
+                            window.dispatchEvent(new Event('popstate'));
+                          }
+                        }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}
+                        title="View user credit details"
+                      >
                         <MemberAvatar
                           photoURL={u.photoURL}
                           initials={u.initials || u.name?.charAt(0) || 'U'}
@@ -372,7 +382,7 @@ export function AdminCreditControlView() {
                           size={38}
                         />
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ fontWeight: 650, color: 'var(--text-primary)', fontSize: '0.92rem' }}>
+                          <span style={{ fontWeight: 650, color: 'var(--primary)', fontSize: '0.92rem', textDecoration: 'underline' }}>
                             {u.name}
                           </span>
                           <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{u.email}</span>
