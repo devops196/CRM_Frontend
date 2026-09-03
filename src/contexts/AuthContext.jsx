@@ -31,9 +31,30 @@ const mapToLegacyUser = (authUser) => ({
 });
 
 export const AuthProvider = ({ children }) => {
-  const [authUser, setAuthUser] = useState(null);
-  const [user, setUser] = useState(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [authUser, setAuthUser] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedUser = loadUserSession();
+      if (savedUser) {
+        return {
+          uid: savedUser.uid,
+          email: savedUser.email,
+          name: savedUser.name,
+          initials: savedUser.initials,
+          memberSince: savedUser.memberSince,
+          orgName: savedUser.orgName,
+          role: savedUser.role,
+          status: savedUser.status,
+          creditsAvailable: savedUser.creditsAvailable || 76,
+          totalCredits: savedUser.totalCredits || 76,
+        };
+      }
+    }
+    return null;
+  });
+
+  const [user, setUser] = useState(() => (authUser ? mapToLegacyUser(authUser) : null));
+  const [isLoggedIn, setIsLoggedIn] = useState(() => !!authUser);
+
 
   /**
    * Fetches the user's live record from the DB and syncs it into state.

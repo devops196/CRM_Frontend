@@ -491,6 +491,11 @@ export function AppShell({ initialView = 'team_lookup', initialUserIdentifier = 
   const currentRole = (authUser?.role || user?.role || '').toUpperCase();
   const isAdmin = currentRole === 'ADMIN';
 
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const [currentView, setCurrentView] = useState(initialView);
   const [selectedUserIdentifier, setSelectedUserIdentifier] = useState(initialUserIdentifier);
 
@@ -552,6 +557,10 @@ export function AppShell({ initialView = 'team_lookup', initialUserIdentifier = 
     }
   }, [isLoggedIn, currentView, isAdmin]);
 
+  if (!isMounted) {
+    return <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg, #090d08)' }} />;
+  }
+
   return (
     <>
       {!isLoggedIn || currentView.startsWith('auth_') ? (
@@ -583,8 +592,6 @@ export function AppShell({ initialView = 'team_lookup', initialUserIdentifier = 
           setSelectedUserIdentifier={setSelectedUserIdentifier}
         />
       )}
-
-
     </>
   );
 }
