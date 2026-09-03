@@ -75,43 +75,32 @@ export const AuthProvider = ({ children }) => {
     return baseUser;
   }, []);
 
-  // On mount — restore session identity from localStorage or default dev user
+  // On mount — restore session identity from localStorage if session exists
   useEffect(() => {
-    let savedUser = loadUserSession();
-    if (!savedUser) {
-      savedUser = {
-        uid: 'dev_dhanush',
-        name: 'Dhanush',
-        email: 'dhanush@quickads.ai',
-        photoURL: undefined,
-        initials: 'D',
-        role: 'Admin',
-        status: 'Active',
-        memberSince: new Date().toISOString(),
-        orgName: 'QuickAds',
-        creditsAvailable: 76,
-        totalCredits: 76,
+    const savedUser = loadUserSession();
+    if (savedUser) {
+      const identityOnly = {
+        uid: savedUser.uid,
+        email: savedUser.email,
+        name: savedUser.name,
+        initials: savedUser.initials,
+        memberSince: savedUser.memberSince,
+        orgName: savedUser.orgName,
+        role: savedUser.role,
+        status: savedUser.status,
+        creditsAvailable: savedUser.creditsAvailable || 76,
+        totalCredits: savedUser.totalCredits || 76,
       };
-      saveUserSession(savedUser);
+      setAuthUser(identityOnly);
+      setUser(mapToLegacyUser(identityOnly));
+      setIsLoggedIn(true);
+
+      syncWithDb(savedUser);
+    } else {
+      setAuthUser(null);
+      setUser(null);
+      setIsLoggedIn(false);
     }
-
-    const identityOnly = {
-      uid: savedUser.uid,
-      email: savedUser.email,
-      name: savedUser.name,
-      initials: savedUser.initials,
-      memberSince: savedUser.memberSince,
-      orgName: savedUser.orgName,
-      role: savedUser.role,
-      status: savedUser.status,
-      creditsAvailable: savedUser.creditsAvailable || 76,
-      totalCredits: savedUser.totalCredits || 76,
-    };
-    setAuthUser(identityOnly);
-    setUser(mapToLegacyUser(identityOnly));
-    setIsLoggedIn(true);
-
-    syncWithDb(savedUser);
   }, [syncWithDb]);
 
   // Initialize Google Identity Services script

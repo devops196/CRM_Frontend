@@ -43,7 +43,7 @@ export const LandingPage = ({ onLoginClick }) => {
   ];
 
   const faqItems = [
-    { q: "How does the AI Churn Predictor work?", a: "Antigravity CRM logs support ticket frequencies, payment schedules, and communication sentiments to flag clients showing drop-offs in usage. It outputs a real-time Risk Score dashboard metric and offers strategic solution outreach plans." },
+    { q: "How does the Churn Predictor work?", a: "Quickads CRM logs support ticket frequencies, payment schedules, and communication sentiments to flag clients showing drop-offs in usage. It outputs a real-time Risk Score dashboard metric and offers strategic solution outreach plans." },
     { q: "Can we migrate our data from Salesforce or HubSpot?", a: "Yes, our onboarding center features direct API-key integrations for HubSpot and Salesforce. You can migrate leads, accounts, and call timeline logs within 10 minutes with full data normalization mapping." },
     { q: "Is our client data secure and GDPR-compliant?", a: "Absolutely. All tenant workspaces are separated at the database schema level with end-to-end TLS 1.3 encryption. We support JWT/SAML authentication and enforce SOC2-compliant system audit trails." },
     { q: "Does the platform support custom branding?", a: "Yes, the Business and Enterprise tiers support custom workspaces. You can adjust colors (including primary accents), upload logos, configure custom domains, and white-label client-facing billing portals." }
@@ -152,7 +152,7 @@ export const LandingPage = ({ onLoginClick }) => {
                 <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#eab308' }}></span>
                 <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#22c55e' }}></span>
               </div>
-              <div style={{ margin: '0 auto', fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>https://app.antigravity.crm/dashboard</div>
+              <div style={{ margin: '0 auto', fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>https://app.quickads.ai/crm/dashboard</div>
             </div>
             
             <div style={{
@@ -441,7 +441,7 @@ export const LandingPage = ({ onLoginClick }) => {
         </div>
 
         <div style={{ maxWidth: '1000px', margin: '2rem auto 0 auto', borderTop: '1px solid var(--border)', paddingTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-          <span>© 2026 Antigravity Systems LLC. All rights reserved.</span>
+          <span>© 2026 Quickads. All rights reserved.</span>
           <div style={{ display: 'flex', gap: '1rem' }}>
             <span>Privacy Policy</span>
             <span>Terms of Service</span>

@@ -205,7 +205,7 @@ export const AdminDashboard = () => {
             </button>
 
             <button onClick={() => {
-              alert("Exported Sales Report to Desktop/CRM_antigravity/walkthrough.md - simulation package prepared.");
+              alert("Sales Report exported successfully — simulation package prepared.");
             }} className="btn btn-secondary" style={{ width: '100%', justifyContent: 'flex-start' }}>
               <Calendar size={16} style={{ color: '#6366f1' }} /> Export Financial Report
             </button>

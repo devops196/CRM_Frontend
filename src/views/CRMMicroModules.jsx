@@ -155,7 +155,7 @@ export const LeadKanban = () => {
   const handleScoreLead = (leadId) => {
     const randomScore = Math.floor(70 + Math.random() * 28);
     updateLead(leadId, { score: randomScore });
-    alert(`Lead scored via Antigravity-AI. New Probability Score: ${randomScore}%`);
+    alert(`Lead re-scored. New Probability Score: ${randomScore}%`);
   };
 
   return (
@@ -510,87 +510,129 @@ export const TaskList = () => {
   );
 };
 
-export const TeamLookupView = ({ onSelectUser }) => {
+const formatPlanLabel = (plan) => {
+  if (!plan) return 'Discover';
+  const p = plan.toString().toLowerCase().trim();
+  if (p === 'discover') return 'Discover';
+  if (p === 'all access 99') return 'All Access 99';
+  if (p === 'all access 99 yearly') return 'All Access 99 Yearly';
+  if (p === 'quickads_tier4') return 'QuickAds Tier 4';
+  if (p === 'quickads_tier6') return 'QuickAds Tier 6';
+  if (p === 'enterprise') return 'Enterprise';
+  return plan;
+};
+
+export const TeamLookupView = () => {
   const { authUser } = useAuth();
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-
-  const [successMessage, setSuccessMessage] = useState(null);
+  const [allUsers, setAllUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [actionMessage, setActionMessage] = useState(null);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
 
   // Determine if logged-in user is admin
   const isAdmin = ['admin', 'ADMIN', 'Admin'].includes(authUser?.role || '');
 
-  const handleSearch = useCallback(async (searchQuery) => {
-    const trimmed = searchQuery.trim();
-    if (!trimmed) {
-      setResults([]);
-      setHasSearched(false);
-      return;
-    }
+  // 1. Fetch all users on mount
+  const loadAllUsers = useCallback(async () => {
     setLoading(true);
-    setHasSearched(true);
     try {
-      const data = await fetchTeamMembersFromApi({ search: trimmed });
-      setResults(data);
+      const data = await fetchTeamMembersFromApi();
+      setAllUsers(data || []);
     } catch (err) {
-      console.error('Error querying team member:', err);
-      setResults([]);
+      console.error('Error fetching team members:', err);
+      setAllUsers([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (query.trim()) handleSearch(query);
-      else { setResults([]); setHasSearched(false); }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [query, handleSearch]);
+    loadAllUsers();
+  }, [loadAllUsers]);
 
-  // When a user card is clicked — open credit details in dynamic route (/lookup/[identifier]) for all users
-  const handleCardClick = (user) => {
-    setSuccessMessage(null);
-    if (onSelectUser) {
-      onSelectUser(user);
-    } else if (typeof window !== 'undefined') {
-      const identifier = user.employeeId || user.id || user.email;
-      window.history.pushState({}, '', `/lookup/${encodeURIComponent(identifier)}`);
-      window.dispatchEvent(new Event('popstate'));
+  // 2. Filter users based on search query
+  const filteredUsers = allUsers.filter((u) => {
+    if (!query.trim()) return true;
+    const q = query.toLowerCase().trim();
+    return (
+      u.name?.toLowerCase().includes(q) ||
+      u.email?.toLowerCase().includes(q) ||
+      u.employeeId?.toLowerCase().includes(q)
+    );
+  });
+
+  // 3. Select a user to view detailed credit breakdown
+  const handleUserClick = (u) => {
+    setSelectedUser(u);
+    setActionMessage(null);
+  };
+
+  // 4. Clear search & deselect user (Return to All Users view)
+  const handleClear = () => {
+    setSelectedUser(null);
+    setQuery('');
+    setActionMessage(null);
+  };
+
+  // Handle admin adding credits
+  const handleConfirmAdminAddCredits = async (additions, targetUser) => {
+    const callerEmail = authUser?.email || 'dhanush@quickads.ai';
+    const targetId = targetUser.employeeId || targetUser.id || targetUser.email;
+    const result = await adminAddCreditsApi(callerEmail, targetId, additions);
+    if (result.success && result.data) {
+      setSelectedUser(result.data);
+      setActionMessage(`Credits successfully added to ${targetUser.name}.`);
+      await loadAllUsers();
+    } else {
+      setActionMessage(`Error: ${result.message || 'Failed to add credits.'}`);
     }
+    setIsAdminModalOpen(false);
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '800px', margin: '0 auto', fontFamily: 'var(--font-sans)' }}>
-      <div>
-        <h2 style={{ margin: 0, fontWeight: 800, fontSize: '1.75rem', letterSpacing: '-0.02em' }}>TEAM LOOKUP</h2>
-        
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '850px', margin: '0 auto', fontFamily: 'var(--font-sans)' }}>
+      {/* Page Title & Back Button */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2 style={{ margin: 0, fontWeight: 800, fontSize: '1.75rem', letterSpacing: '-0.02em' }}>
+          TEAM LOOKUP
+        </h2>
+        {selectedUser && (
+          <button
+            onClick={handleClear}
+            className="btn btn-secondary"
+            style={{ padding: '0.4rem 0.85rem', fontSize: '0.82rem', gap: '0.4rem', fontWeight: 600 }}
+          >
+            <ArrowLeft size={14} /> Show All Teammates
+          </button>
+        )}
       </div>
 
-      {successMessage && (
+      {/* Notification Message */}
+      {actionMessage && (
         <div
           style={{
             display: 'flex', alignItems: 'center', gap: '0.6rem',
             padding: '0.75rem 1rem',
             borderRadius: 'var(--radius-sm)',
-            backgroundColor: successMessage.startsWith('Error')
+            backgroundColor: actionMessage.startsWith('Error')
               ? 'rgba(239,68,68,0.08)'
               : 'rgba(16,185,129,0.08)',
-            border: `1px solid ${successMessage.startsWith('Error') ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
+            border: `1px solid ${actionMessage.startsWith('Error') ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
             fontSize: '0.85rem',
-            color: successMessage.startsWith('Error') ? '#f87171' : 'var(--text-primary)',
+            color: actionMessage.startsWith('Error') ? '#f87171' : 'var(--text-primary)',
           }}
         >
-          <CheckCircle2 size={16} style={{ color: successMessage.startsWith('Error') ? '#f87171' : '#10b981', flexShrink: 0 }} />
-          {successMessage}
+          <CheckCircle2 size={16} style={{ color: actionMessage.startsWith('Error') ? '#f87171' : '#10b981', flexShrink: 0 }} />
+          {actionMessage}
         </div>
       )}
 
-      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1.5rem' }}>
+      {/* Search Input Bar (Always rendered at top) */}
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1.25rem' }}>
         <div className="form-group" style={{ marginBottom: 0 }}>
-          <label className="form-label" style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.4rem' }}>
+          <label className="form-label" style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.35rem' }}>
             {isAdmin ? 'Search any user...' : 'Search teammate...'}
           </label>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -598,116 +640,228 @@ export const TeamLookupView = ({ onSelectUser }) => {
               type="text"
               placeholder={isAdmin ? 'Search by name, email, or Employee ID...' : 'Search teammate...'}
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                if (selectedUser && e.target.value.trim() !== selectedUser.name.toLowerCase()) {
+                  setSelectedUser(null);
+                }
+              }}
               className="form-input"
               style={{ height: '42px', fontSize: '0.95rem', flex: 1 }}
               autoFocus
             />
-            <button
-              onClick={() => handleSearch(query)}
-              disabled={loading}
-              className="btn btn-primary"
-              style={{ height: '42px', padding: '0 1.25rem', fontSize: '0.9rem', fontWeight: 650 }}
-            >
-              {loading ? 'Searching...' : 'Lookup'}
-            </button>
+            {(query || selectedUser) && (
+              <button
+                onClick={handleClear}
+                className="btn btn-secondary"
+                style={{ height: '42px', padding: '0 1rem', fontSize: '0.85rem' }}
+                title="Clear Search"
+              >
+                Clear
+              </button>
+            )}
           </div>
         </div>
+      </div>
 
-        {!hasSearched && !loading && (
-          <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem', border: '1px dashed var(--border)', borderRadius: 'var(--radius-sm)' }}>
-            {isAdmin
-              ? 'Search any user by name, email, or Employee ID to manage their credits.'
-              : 'Search teammate by name, email, or Employee ID to view profile cards.'}
-          </div>
-        )}
+      {/* State 1: Loading Initial User Directory */}
+      {loading && (
+        <div style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+          Loading team directory from database...
+        </div>
+      )}
 
-        {loading && (
-          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            Searching database for matching user...
-          </div>
-        )}
-
-        {hasSearched && !loading && results.length === 0 && (
-          <div style={{ padding: '1.5rem', textAlign: 'center', backgroundColor: 'var(--bg-sidebar)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-            No user found matching <strong>"{query}"</strong> in the database.
-          </div>
-        )}
-
-        {hasSearched && !loading && results.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-            {results.map((user) => (
+      {/* State 2: Selected User Mode (Search bar -> Selected user basic info -> Credit cards) */}
+      {!loading && selectedUser && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* Selected User Basic Details Card */}
+          <div className="card" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <div
-                key={user.id}
-                onClick={() => handleCardClick(user)}
                 style={{
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--bg-sidebar)',
-                  padding: '1.25rem',
+                  width: '52px',
+                  height: '52px',
+                  borderRadius: '50%',
+                  backgroundColor: isAdmin ? '#8b5cf6' : 'var(--primary)',
+                  color: isAdmin ? '#fff' : '#000',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '1rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = isAdmin ? '#8b5cf6' : 'var(--primary)';
-                  e.currentTarget.style.backgroundColor = 'var(--bg-card)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border)';
-                  e.currentTarget.style.backgroundColor = 'var(--bg-sidebar)';
+                  justifyContent: 'center',
+                  fontWeight: 800,
+                  fontSize: '1.25rem',
+                  overflow: 'hidden',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
+                  flexShrink: 0,
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <div
-                    style={{
-                      width: '48px', height: '48px', borderRadius: '50%',
-                      backgroundColor: isAdmin ? '#8b5cf6' : 'var(--primary)',
-                      color: isAdmin ? '#fff' : '#000',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontWeight: 700, fontSize: '1.15rem',
-                      overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', flexShrink: 0,
-                    }}
-                  >
-                    {user.photoURL ? (
-                      <img src={user.photoURL} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      user.initials || user.name.charAt(0)
-                    )}
-                  </div>
+                {selectedUser.photoURL ? (
+                  <img src={selectedUser.photoURL} alt={selectedUser.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  selectedUser.initials || selectedUser.name?.charAt(0) || 'U'
+                )}
+              </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>{user.name}</div>
-                    <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{user.email}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: '1px' }}>
-                      ID: {user.employeeId}
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.35rem' }}>
-                  <span className={`badge ${user.accountStatus === 'Active' || user.status === 'Active' ? 'badge-success' : 'badge-error'}`} style={{ fontSize: '0.7rem', fontWeight: 700 }}>
-                    {(user.accountStatus || user.status || 'Active').toUpperCase()}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)',
-                      backgroundColor: 'rgba(204, 255, 0, 0.08)',
-                      border: '1px solid var(--border)',
-                      padding: '3px 10px', borderRadius: '8px',
-                    }}
-                  >
-                    View Credit Details →
-                  </span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)' }}>{selectedUser.name}</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{selectedUser.email}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
+                  ID: {selectedUser.employeeId}
                 </div>
               </div>
-            ))}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem' }}>
+              <span className={`badge ${selectedUser.accountStatus === 'Active' || selectedUser.status === 'Active' ? 'badge-success' : 'badge-error'}`} style={{ fontSize: '0.72rem', fontWeight: 700 }}>
+                {(selectedUser.accountStatus || selectedUser.status || 'Active').toUpperCase()}
+              </span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Plan: <strong style={{ color: 'var(--text-primary)' }}>{formatPlanLabel(selectedUser.subscriptionPlan || selectedUser.subscription_plan)}</strong>
+              </span>
+              {isAdmin && (
+                <button
+                  onClick={() => setIsAdminModalOpen(true)}
+                  style={{
+                    padding: '0.45rem 0.9rem',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    borderRadius: '8px',
+                    backgroundColor: '#8b5cf6',
+                    color: '#fff',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                    marginTop: '0.2rem',
+                  }}
+                >
+                  ⚡ Manage Subscription
+                </button>
+              )}
+            </div>
           </div>
-        )}
-      </div>
+
+          {/* Selected User Credit Cards Dashboard */}
+          <UsageCreditsDashboard
+            user={selectedUser}
+            dbUserCredits={{
+              available: selectedUser.creditsAvailable,
+              total: selectedUser.totalCredits,
+            }}
+            userName={selectedUser.name}
+          />
+        </div>
+      )}
+
+      {/* State 3: All Users List (Initial / Unselected Mode) */}
+      {!loading && !selectedUser && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 0.25rem' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {query ? `Matching Teammates (${filteredUsers.length})` : `All Teammates (${filteredUsers.length})`}
+            </span>
+          </div>
+
+          {filteredUsers.length === 0 ? (
+            <div style={{ padding: '2rem', textAlign: 'center', backgroundColor: 'var(--bg-sidebar)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+              No teammates found matching <strong>"{query}"</strong>.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {filteredUsers.map((user) => (
+                <div
+                  key={user.id || user.email}
+                  onClick={() => handleUserClick(user)}
+                  style={{
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--bg-sidebar)',
+                    padding: '1rem 1.25rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '1rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = isAdmin ? '#8b5cf6' : 'var(--primary)';
+                    e.currentTarget.style.backgroundColor = 'var(--bg-card)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border)';
+                    e.currentTarget.style.backgroundColor = 'var(--bg-sidebar)';
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div
+                      style={{
+                        width: '44px',
+                        height: '44px',
+                        borderRadius: '50%',
+                        backgroundColor: isAdmin ? '#8b5cf6' : 'var(--primary)',
+                        color: isAdmin ? '#fff' : '#000',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 700,
+                        fontSize: '1.1rem',
+                        overflow: 'hidden',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {user.photoURL ? (
+                        <img src={user.photoURL} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        user.initials || user.name?.charAt(0) || 'U'
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                      <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{user.name}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{user.email}</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                        ID: {user.employeeId}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.35rem' }}>
+                    <span className={`badge ${user.accountStatus === 'Active' || user.status === 'Active' ? 'badge-success' : 'badge-error'}`} style={{ fontSize: '0.68rem', fontWeight: 700 }}>
+                      {(user.accountStatus || user.status || 'Active').toUpperCase()}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        color: 'var(--primary)',
+                        backgroundColor: 'rgba(204, 255, 0, 0.08)',
+                        border: '1px solid var(--border)',
+                        padding: '3px 10px',
+                        borderRadius: '8px',
+                      }}
+                    >
+                      View Credit Details →
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Admin Add Credits Modal for Selected User */}
+      {isAdmin && selectedUser && (
+        <AdminAddCreditsModal
+          isOpen={isAdminModalOpen}
+          onClose={() => setIsAdminModalOpen(false)}
+          targetUser={selectedUser}
+          onConfirmAddCredits={handleConfirmAdminAddCredits}
+        />
+      )}
     </div>
   );
 };
@@ -918,7 +1072,7 @@ export const UserCreditDetailsView = ({ identifier, onBack }) => {
             {(user.accountStatus || user.status || 'Active').toUpperCase()}
           </span>
           <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-            Plan: <strong style={{ color: 'var(--text-primary)' }}>{user.role === 'Admin' ? 'Admin Plan' : 'Customer Plan'}</strong>
+            Plan: <strong style={{ color: 'var(--text-primary)' }}>{formatPlanLabel(user.subscriptionPlan || user.subscription_plan)}</strong>
           </span>
           {isAdmin && (
             <button
@@ -939,7 +1093,7 @@ export const UserCreditDetailsView = ({ identifier, onBack }) => {
                 marginTop: '0.2rem',
               }}
             >
-              ⚡ Manage Credits
+              ⚡ Manage Subscription
             </button>
           )}
         </div>

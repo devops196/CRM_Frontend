@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useCRMState } from '../contexts/CRMStateContext.jsx';
@@ -14,9 +14,11 @@ import { CustomersList, LeadKanban, CommunicationHub, TaskList, SettingsPanel, T
 import { AdminCreditControlView } from '../views/AdminCreditControlView.jsx';
 
 // Components
-import { FloatingAIAssistant } from '../components/FloatingAIAssistant.jsx';
 import { WorkflowBuilder } from '../components/WorkflowBuilder.jsx';
 import MemberAvatar from '../components/team/MemberAvatar.jsx';
+
+// Services
+import { fetchTeamMembersFromApi } from '../services/team.service.js';
 
 // Lucide Icons
 import {
@@ -26,8 +28,8 @@ import {
   Sun,
   Moon,
   LogOut,
-  Menu,
-  ShieldCheck
+  ShieldCheck,
+  Loader2,
 } from 'lucide-react';
 
 const DashboardShell = ({ currentView, setCurrentView, selectedUserIdentifier, setSelectedUserIdentifier }) => {
@@ -44,6 +46,11 @@ const DashboardShell = ({ currentView, setCurrentView, selectedUserIdentifier, s
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
 
+  // User search states
+  const [userResults, setUserResults] = useState([]);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
+  const debounceRef = useRef(null);
+
   // Keyboard shortcut for command palette (Cmd/Ctrl + K)
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -51,22 +58,49 @@ const DashboardShell = ({ currentView, setCurrentView, selectedUserIdentifier, s
         e.preventDefault();
         setCommandPaletteOpen((prev) => !prev);
       }
+      if (e.key === 'Escape') {
+        setCommandPaletteOpen(false);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Search logic
-  const handleSearchChange = (val) => {
-    setSearchQuery(val);
-    if (!val) {
+  // Reset state when palette closes
+  useEffect(() => {
+    if (!commandPaletteOpen) {
+      setSearchQuery('');
       setSearchResults([]);
+      setUserResults([]);
+      setUserSearchLoading(false);
+    }
+  }, [commandPaletteOpen]);
+
+  // Live user search via API (debounced 300ms — same as TeamLookupView)
+  const fetchUsers = useCallback(async (query) => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setUserResults([]);
+      setUserSearchLoading(false);
       return;
     }
+    setUserSearchLoading(true);
+    try {
+      const data = await fetchTeamMembersFromApi({ search: trimmed });
+      setUserResults(data || []);
+    } catch (err) {
+      console.error('Navbar user search error:', err);
+      setUserResults([]);
+    } finally {
+      setUserSearchLoading(false);
+    }
+  }, []);
 
+  // Command/nav search logic (synchronous)
+  const getCommandResults = useCallback((val) => {
+    if (!val) return [];
     const query = val.toLowerCase();
     const results = [];
-
     if ('team lookup account search'.includes(query)) {
       results.push({ category: 'Navigation', text: 'Open Team Lookup', action: () => { if (typeof window !== 'undefined') window.history.pushState({}, '', '/team_lookup'); setCurrentView('team_lookup'); setCommandPaletteOpen(false); } });
     }
@@ -82,12 +116,33 @@ const DashboardShell = ({ currentView, setCurrentView, selectedUserIdentifier, s
     if ('toggle light dark mode theme'.includes(query)) {
       results.push({ category: 'Command', text: 'Toggle dark mode or light mode', action: () => toggleTheme() });
     }
+    return results;
+  }, [isAdmin, resetDatabase, toggleTheme, setCurrentView]);
 
-    setSearchResults(results);
+  const handleSearchChange = (val) => {
+    setSearchQuery(val);
+    setSearchResults(getCommandResults(val));
+    // Debounce user API search
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchUsers(val), 300);
+  };
+
+  // Navigate to user credit details from navbar search result
+  const handleUserResultClick = (u) => {
+    const identifier = u.employeeId || u.id || u.email;
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', `/lookup/${encodeURIComponent(identifier)}`);
+    }
+    setSelectedUserIdentifier(identifier);
+    setCurrentView('user_credit_details');
+    setCommandPaletteOpen(false);
   };
 
   const handleLogoutClick = () => {
     logout();
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', '/');
+    }
     setCurrentView('auth_login');
   };
 
@@ -181,15 +236,10 @@ const DashboardShell = ({ currentView, setCurrentView, selectedUserIdentifier, s
       <div className="main-content">
         <header className="header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <button
-              className="btn-icon"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              style={{ display: 'flex' }}
-              title="Toggle Navigation Menu"
-            >
-              <Menu size={18} />
-            </button>
+            {/* Left side intentionally empty */}
+          </div>
 
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div
               onClick={() => setCommandPaletteOpen(true)}
               style={{
@@ -220,12 +270,6 @@ const DashboardShell = ({ currentView, setCurrentView, selectedUserIdentifier, s
                 ⌘K
               </span>
             </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span className="badge badge-primary" style={{ textTransform: 'uppercase', fontSize: '0.65rem' }}>
-              Tenant: {user?.orgName ? user.orgName.split(' ')[0] : 'Default'}
-            </span>
             <button className="btn-icon" onClick={toggleTheme}>
               {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
             </button>
@@ -271,13 +315,24 @@ const DashboardShell = ({ currentView, setCurrentView, selectedUserIdentifier, s
 
       {commandPaletteOpen && (
         <div className="modal-overlay" onClick={() => setCommandPaletteOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px', marginTop: '10vh' }}>
-            <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Search size={16} style={{ color: 'var(--text-muted)' }} />
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '580px', marginTop: '8vh', padding: 0, overflow: 'hidden' }}
+          >
+            {/* Search Input */}
+            <div style={{
+              padding: '0.85rem 1.1rem',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.6rem'
+            }}>
+              <Search size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
               <input
                 autoFocus
                 type="text"
-                placeholder="Type a command or query (e.g. 'Stark', 'Settings', 'Reset')..."
+                placeholder="Search users by name, email or Employee ID..."
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 style={{
@@ -285,46 +340,144 @@ const DashboardShell = ({ currentView, setCurrentView, selectedUserIdentifier, s
                   background: 'none',
                   border: 'none',
                   outline: 'none',
-                  fontSize: '0.9rem',
+                  fontSize: '0.92rem',
                   color: 'var(--text-primary)'
                 }}
               />
+              {userSearchLoading && (
+                <Loader2 size={15} style={{ color: 'var(--text-muted)', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+              )}
+              <kbd style={{
+                backgroundColor: 'var(--border)',
+                fontSize: '0.62rem',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontFamily: 'var(--font-mono)',
+                color: 'var(--text-muted)',
+                flexShrink: 0
+              }}>ESC</kbd>
             </div>
-            
-            <div style={{ maxHeight: '280px', overflowY: 'auto', padding: '0.5rem' }}>
-              {searchResults.length > 0 ? (
-                searchResults.map((res, idx) => (
-                  <div
-                    key={idx}
-                    onClick={() => { res.action(); setCommandPaletteOpen(false); }}
-                    style={{
-                      padding: '0.6rem 0.75rem',
-                      borderRadius: 'var(--radius-sm)',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      transition: 'background-color var(--transition-fast)'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-sidebar)'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                  >
-                    <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{res.text}</span>
-                    <span className="badge badge-primary" style={{ fontSize: '0.6rem' }}>{res.category}</span>
+
+            <div style={{ maxHeight: '420px', overflowY: 'auto' }}>
+
+              {/* — USER RESULTS SECTION — */}
+              {searchQuery && (
+                <div style={{ padding: '0.5rem 0.75rem 0' }}>
+                  <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0.5rem 0.25rem 0.3rem' }}>
+                    Users
                   </div>
-                ))
-              ) : searchQuery ? (
-                <div style={{ padding: '1rem', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  No matching workspace records or API commands found.
-                </div>
-              ) : (
-                <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Quick suggestions</div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>• Type <strong>Stark</strong> to search customer file accounts.</div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>• Type <strong>Settings</strong> to open developer configurations.</div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>• Type <strong>Reset</strong> to trigger a mock database clean.</div>
+
+                  {userSearchLoading && (
+                    <div style={{ padding: '0.75rem', fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />
+                      Searching users...
+                    </div>
+                  )}
+
+                  {!userSearchLoading && userResults.length === 0 && searchQuery.trim() && (
+                    <div style={{ padding: '0.75rem 0.25rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                      No users found for &quot;{searchQuery}&quot;.
+                    </div>
+                  )}
+
+                  {!userSearchLoading && userResults.map((u) => (
+                    <div
+                      key={u.id || u.email}
+                      onClick={() => handleUserResultClick(u)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.85rem',
+                        padding: '0.65rem 0.5rem',
+                        borderRadius: 'var(--radius-sm)',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.15s',
+                        marginBottom: '2px',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-sidebar)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      {/* Avatar */}
+                      <div style={{
+                        width: '36px', height: '36px', borderRadius: '50%',
+                        backgroundColor: isAdmin ? '#8b5cf6' : 'var(--primary)',
+                        color: isAdmin ? '#fff' : '#000',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontWeight: 700, fontSize: '0.85rem', flexShrink: 0,
+                        overflow: 'hidden',
+                      }}>
+                        {u.photoURL
+                          ? <img src={u.photoURL} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : (u.initials || u.name?.charAt(0) || '?')
+                        }
+                      </div>
+
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 650, fontSize: '0.88rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {u.name}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {u.email} {u.employeeId ? `· ${u.employeeId}` : ''}
+                        </div>
+                      </div>
+
+                      {/* Status + CTA */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem', flexShrink: 0 }}>
+                        <span className={`badge ${(u.accountStatus || u.status) === 'Active' ? 'badge-success' : 'badge-error'}`} style={{ fontSize: '0.6rem', fontWeight: 700 }}>
+                          {(u.accountStatus || u.status || 'Active').toUpperCase()}
+                        </span>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--primary)', fontWeight: 600 }}>
+                          View Credits →
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
+
+              {/* — COMMANDS SECTION — */}
+              {(searchResults.length > 0 || !searchQuery) && (
+                <div style={{ padding: '0.5rem 0.75rem', borderTop: searchQuery && userResults.length > 0 ? '1px solid var(--border)' : 'none' }}>
+                  <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0.5rem 0.25rem 0.3rem' }}>
+                    {searchQuery ? 'Commands' : 'Quick Suggestions'}
+                  </div>
+
+                  {searchResults.length > 0 ? searchResults.map((res, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => { res.action(); setCommandPaletteOpen(false); }}
+                      style={{
+                        padding: '0.6rem 0.5rem',
+                        borderRadius: 'var(--radius-sm)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        transition: 'background-color 0.15s',
+                        marginBottom: '2px',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-sidebar)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{res.text}</span>
+                      <span className="badge badge-primary" style={{ fontSize: '0.6rem' }}>{res.category}</span>
+                    </div>
+                  )) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', padding: '0.25rem 0.25rem 0.75rem' }}>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>• Type a <strong>name</strong> to search users and view credit details.</div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Empty state when query has no results at all */}
+              {searchQuery && !userSearchLoading && userResults.length === 0 && searchResults.length === 0 && (
+                <div style={{ padding: '1.25rem 1rem', textAlign: 'center', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  No users or commands matched &quot;{searchQuery}&quot;.
+                </div>
+              )}
+
             </div>
           </div>
         </div>
@@ -401,7 +554,7 @@ export function AppShell({ initialView = 'team_lookup', initialUserIdentifier = 
 
   return (
     <>
-      {currentView.startsWith('auth_') ? (
+      {!isLoggedIn || currentView.startsWith('auth_') ? (
         <AuthPages
           onAuthSuccess={() => {
             if (typeof window !== 'undefined') {
@@ -431,9 +584,7 @@ export function AppShell({ initialView = 'team_lookup', initialUserIdentifier = 
         />
       )}
 
-      {!currentView.startsWith('auth_') && (
-        <FloatingAIAssistant />
-      )}
+
     </>
   );
 }

@@ -17,6 +17,17 @@ import {
   Check,
 } from 'lucide-react';
 import MemberAvatar from './MemberAvatar.jsx';
+import { updateUserSubscriptionPlanApi } from '../../services/team.service.js';
+
+export const SUBSCRIPTION_PLANS = [
+  { label: 'Discover', value: 'discover' },
+  { label: 'All Access 99', value: 'all access 99' },
+  { label: 'All Access 99 Yearly', value: 'all access 99 yearly' },
+  { label: 'QuickAds Tier 4', value: 'quickads_tier4' },
+  { label: 'QuickAds Tier 6', value: 'quickads_tier6' },
+  { label: 'Enterprise', value: 'enterprise' },
+];
+
 
 const CREDIT_TYPES = [
   {
@@ -121,9 +132,12 @@ const AdminAddCreditsModal = ({
     imageToVideoCredits: 0,
   });
   const [submitting, setSubmitting] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(targetUser?.subscriptionPlan || targetUser?.subscription_plan || 'discover');
+  const [updatingPlan, setUpdatingPlan] = useState(false);
+  const [planMessage, setPlanMessage] = useState(null);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && targetUser) {
       setAdditions({
         generationCredits: 0,
         videoCredits: 0,
@@ -133,9 +147,35 @@ const AdminAddCreditsModal = ({
         imageCredits: 0,
         imageToVideoCredits: 0,
       });
+      setSelectedPlan(targetUser.subscriptionPlan || targetUser.subscription_plan || 'discover');
       setSubmitting(false);
+      setUpdatingPlan(false);
+      setPlanMessage(null);
     }
-  }, [isOpen]);
+  }, [isOpen, targetUser]);
+
+  const handleUpdatePlan = async () => {
+    if (!targetUser?.email || !selectedPlan) return;
+    setUpdatingPlan(true);
+    setPlanMessage(null);
+    const res = await updateUserSubscriptionPlanApi(targetUser.email, selectedPlan);
+    setUpdatingPlan(false);
+    if (res.success) {
+      setPlanMessage(`Plan successfully updated to ${selectedPlan.toUpperCase()}! Hardcoded limits applied.`);
+      if (res.data) {
+        targetUser.subscriptionPlan = res.data.subscriptionPlan;
+        targetUser.generationCreditsTotal = res.data.generationCreditsTotal;
+        targetUser.videoCreditsTotal = res.data.videoCreditsTotal;
+        targetUser.voiceCreditsTotal = res.data.voiceCreditsTotal;
+        targetUser.voiceCloneCreditsTotal = res.data.voiceCloneCreditsTotal;
+        targetUser.ugcCreditsTotal = res.data.ugcCreditsTotal;
+        targetUser.imageCreditsTotal = res.data.imageCreditsTotal;
+        targetUser.imageToVideoCreditsTotal = res.data.imageToVideoCreditsTotal;
+      }
+    } else {
+      setPlanMessage(`Error: ${res.message || 'Failed to update subscription plan.'}`);
+    }
+  };
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -314,6 +354,80 @@ const AdminAddCreditsModal = ({
             >
               +{totalAdding} Credits
             </span>
+          )}
+        </div>
+
+        {/* ── Subscription Plan Switcher ── */}
+        <div
+          style={{
+            margin: '0.85rem 1.5rem 0.25rem 1.5rem',
+            padding: '0.85rem 1rem',
+            backgroundColor: 'var(--bg-card, #131a12)',
+            border: '1px solid rgba(139,92,246,0.3)',
+            borderRadius: 'var(--radius-sm, 10px)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.6rem',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Active Subscription Plan:
+              <span style={{ marginLeft: '0.4rem', color: '#8b5cf6', fontWeight: 800 }}>
+                {SUBSCRIPTION_PLANS.find(p => p.value === (targetUser.subscriptionPlan || targetUser.subscription_plan || 'discover').toLowerCase())?.label || targetUser.subscriptionPlan || 'Discover'}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <select
+              value={selectedPlan}
+              onChange={(e) => setSelectedPlan(e.target.value)}
+              className="form-select"
+              style={{
+                flex: 1,
+                height: '36px',
+                fontSize: '0.84rem',
+                backgroundColor: 'var(--bg-sidebar, #0a0d0a)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border, #1a2217)',
+                borderRadius: '8px',
+                padding: '0 0.75rem',
+              }}
+            >
+              {SUBSCRIPTION_PLANS.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              onClick={handleUpdatePlan}
+              disabled={updatingPlan || selectedPlan === (targetUser.subscriptionPlan || targetUser.subscription_plan || 'discover')}
+              style={{
+                height: '36px',
+                padding: '0 1rem',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                borderRadius: '8px',
+                backgroundColor: '#8b5cf6',
+                color: '#fff',
+                border: 'none',
+                cursor: updatingPlan ? 'wait' : 'pointer',
+                opacity: selectedPlan === (targetUser.subscriptionPlan || targetUser.subscription_plan || 'discover') ? 0.6 : 1,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {updatingPlan ? 'Updating Plan...' : 'Update Plan'}
+            </button>
+          </div>
+
+          {planMessage && (
+            <div style={{ fontSize: '0.78rem', color: planMessage.startsWith('Error') ? '#ef4444' : '#10b981', fontWeight: 600 }}>
+              {planMessage}
+            </div>
           )}
         </div>
 

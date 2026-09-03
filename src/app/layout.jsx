@@ -3,8 +3,8 @@ import '../App.css';
 import { Providers } from './providers.jsx';
 
 export const metadata = {
-  title: 'Antigravity CRM - AI-Driven Operations & Credits Dashboard',
-  description: 'Enterprise AI CRM platform for sales pipeline management, customer intelligence, and automated credits tracking.',
+  title: 'Quickads CRM - Operations & Credits Dashboard',
+  description: 'Enterprise CRM platform for sales pipeline management, customer intelligence, and automated credits tracking.',
 };
 
 // Inline script to apply theme BEFORE React hydrates — prevents FOUC

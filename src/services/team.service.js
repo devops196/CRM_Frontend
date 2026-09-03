@@ -24,7 +24,12 @@ export const saveTeamMembers = (members) => {
   localStorage.setItem(TEAM_STORAGE_KEY, JSON.stringify(members));
 };
 
-const getBaseUrl = () => (typeof window !== 'undefined' && window.location.origin.includes(':5173') ? 'http://localhost:8000' : '');
+const getBaseUrl = () => {
+  if (typeof window === 'undefined') return '';
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  return isLocal ? 'http://localhost:8000' : '';
+};
 
 /**
  * Fetches team members strictly from the backend API.
@@ -248,6 +253,32 @@ export const adminUpdateCreditsApi = async (callerEmail, targetIdentifier, credi
   }
 };
 
+/**
+ * Admin: Update user subscription plan and reset/overwrite credit allocations to hardcoded tier limits.
+ * PUT /api/v1/users/{email}/subscription
+ */
+export const updateUserSubscriptionPlanApi = async (email, newPlanName) => {
+  try {
+    const baseUrl = getBaseUrl();
+    // Use POST with email in body to avoid URL encoding issues with @ in email
+    const res = await fetch(`${baseUrl}/api/v1/users/update-subscription`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, new_plan_name: newPlanName }),
+    });
+    const json = await res.json();
+    return {
+      success: res.ok && (json.success || json.message?.includes('successfully')),
+      message: json.message || json.detail || '',
+      data: json.data ? mapUserDtoToTeamMember(json.data) : null,
+      updated_credits: json.updated_credits || null,
+    };
+  } catch (err) {
+    return { success: false, message: err.message || 'Network error updating subscription plan.' };
+  }
+};
+
 /** Helper to map user object from DB DTO */
 function mapUserDtoToTeamMember(u) {
   const total = u.totalCredits ?? u.generationcreditstotal ?? 0;
@@ -264,6 +295,7 @@ function mapUserDtoToTeamMember(u) {
     role: (u.role || '').toUpperCase() === 'ADMIN' ? 'Admin' : 'Customer',
     status: (u.accountStatus || '').toUpperCase() === 'ACTIVE' ? 'Active' : 'Inactive',
     accountStatus: (u.accountStatus || '').toUpperCase() === 'ACTIVE' ? 'Active' : 'Inactive',
+    subscriptionPlan: u.subscriptionPlan || u.subscription_plan || 'discover',
     creditsAvailable: available,
     totalCredits: total,
     usagePercentage: u.usagePercentage ?? 0,

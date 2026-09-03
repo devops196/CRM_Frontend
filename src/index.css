@@ -552,19 +552,8 @@ a:hover {
   .grid-2, .grid-3, .grid-4, .grid-12 { grid-template-columns: 1fr; }
   .app-container { flex-direction: row; }
   .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 270px;
-    height: 100vh;
-    z-index: 100;
-    transform: translateX(-100%);
-    transition: transform var(--transition-normal);
-    box-shadow: var(--shadow-xl);
-  }
-  .sidebar.open {
-    transform: translateX(0);
+    width: 220px;
+    flex-shrink: 0;
   }
   .header { padding: 0 1rem; }
   .page-body { padding: 1rem; gap: 1.25rem; }
@@ -613,6 +602,11 @@ a:hover {
     transform: translateY(0);
     opacity: 1;
   }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 .animate-slide-up {

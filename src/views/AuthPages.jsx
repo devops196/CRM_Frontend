@@ -92,7 +92,7 @@ export const AuthPages = ({ onAuthSuccess }) => {
             <Zap size={19} style={{ color: '#060a04' }} />
           </div>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1.25rem', color: '#f0f5ef', letterSpacing: '-0.03em', lineHeight: 1 }}>
-            Antigravity<span style={{ color: 'hsl(77,65%,55%)' }}>.crm</span>
+            Quickads<span style={{ color: 'hsl(77,65%,55%)' }}>.crm</span>
           </div>
         </div>
 
@@ -195,7 +195,7 @@ export const AuthPages = ({ onAuthSuccess }) => {
               <Zap size={16} style={{ color: '#060a04' }} />
             </div>
             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary)', letterSpacing: '-0.025em' }}>
-              Antigravity<span style={{ color: 'var(--primary)' }}>.crm</span>
+              Quickads<span style={{ color: 'var(--primary)' }}>.crm</span>
             </span>
           </div>
 
@@ -213,7 +213,7 @@ export const AuthPages = ({ onAuthSuccess }) => {
                 Welcome back
               </h2>
               <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                Sign in to your Antigravity CRM workspace.
+                Sign in to your Quickads CRM workspace.
               </p>
             </div>
 
@@ -284,7 +284,7 @@ export const AuthPages = ({ onAuthSuccess }) => {
           </div>
 
           <p style={{ textAlign: 'center', fontSize: '0.67rem', color: 'var(--text-muted)', marginTop: '1rem', marginBottom: 0 }}>
-            © {new Date().getFullYear()} Antigravity Technologies · All rights reserved
+            © {new Date().getFullYear()} Quickads · All rights reserved
           </p>
         </div>
       </div>

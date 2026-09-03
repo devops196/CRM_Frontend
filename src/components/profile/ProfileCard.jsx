@@ -194,43 +194,45 @@ const ProfileCard = ({ authUser }) => {
   const photoURL =
     dbUser?.photoURL && dbUser.photoURL.trim() !== '' ? dbUser.photoURL : undefined;
 
-  const used = Math.max(0, total - available);
-  const remainingPct = total > 0 ? Math.round((available / total) * 100) : 0;
-  const usedPct = total > 0 ? Math.round((used / total) * 100) : 0;
 
-  let healthLabel = 'Healthy';
-  let healthColor = '#10b981';
-  let healthBg = 'rgba(16, 185, 129, 0.12)';
-
-  if (remainingPct < 30) {
-    healthLabel = 'Critical';
-    healthColor = '#ef4444';
-    healthBg = 'rgba(239, 68, 68, 0.12)';
-  } else if (remainingPct <= 70) {
-    healthLabel = 'Warning';
-    healthColor = '#f59e0b';
-    healthBg = 'rgba(245, 158, 11, 0.12)';
-  }
 
   // Enriched user object for UsageCreditsDashboard
-  const userForDashboard = {
-    ...dbUser,
-    generationCreditsTotal: ownerCredits.generationCredits,
-    generationCreditsUsed: 0,
-    videoCreditsTotal: ownerCredits.videoCredits,
-    videoCreditsUsed: 0,
-    voiceCreditsTotal: ownerCredits.voiceCredits,
-    voiceCreditsUsed: 0,
-    voiceCloneCreditsTotal: ownerCredits.voiceCloneCredits,
-    voiceCloneCreditsUsed: 0,
-    ugcCreditsTotal: ownerCredits.ugcCredits,
-    ugcCreditsUsed: 0,
-    imageCreditsTotal: ownerCredits.imageCredits,
-    imageCreditsUsed: 0,
-    imageToVideoCreditsTotal: ownerCredits.imageToVideoCredits,
-    imageToVideoCreditsUsed: 0,
-    analysisCreditsUnlimited: true,
-  };
+  const userForDashboard = dbUser
+    ? {
+        ...dbUser,
+        generationCreditsTotal: dbUser.generationCreditsTotal ?? dbUser.generationcreditstotal ?? ownerCredits.generationCredits,
+        generationCreditsUsed: dbUser.generationCreditsUsed ?? dbUser.generationcreditsused ?? 0,
+        videoCreditsTotal: dbUser.videoCreditsTotal ?? dbUser.videocreditstotal ?? ownerCredits.videoCredits,
+        videoCreditsUsed: dbUser.videoCreditsUsed ?? dbUser.videocreditsused ?? 0,
+        voiceCreditsTotal: dbUser.voiceCreditsTotal ?? dbUser.voicecreditstotal ?? ownerCredits.voiceCredits,
+        voiceCreditsUsed: dbUser.voiceCreditsUsed ?? dbUser.voicecreditsused ?? 0,
+        voiceCloneCreditsTotal: dbUser.voiceCloneCreditsTotal ?? dbUser.voiceclonecreditstotal ?? ownerCredits.voiceCloneCredits,
+        voiceCloneCreditsUsed: dbUser.voiceCloneCreditsUsed ?? dbUser.voiceclonecreditsused ?? 0,
+        ugcCreditsTotal: dbUser.ugcCreditsTotal ?? dbUser.ugccreditstotal ?? ownerCredits.ugcCredits,
+        ugcCreditsUsed: dbUser.ugcCreditsUsed ?? dbUser.ugccreditsused ?? 0,
+        imageCreditsTotal: dbUser.imageCreditsTotal ?? dbUser.imagecreditstotal ?? ownerCredits.imageCredits,
+        imageCreditsUsed: dbUser.imageCreditsUsed ?? dbUser.imagecreditsused ?? 0,
+        imageToVideoCreditsTotal: dbUser.imageToVideoCreditsTotal ?? dbUser.imagetovideocreditstotal ?? ownerCredits.imageToVideoCredits,
+        imageToVideoCreditsUsed: dbUser.imageToVideoCreditsUsed ?? dbUser.imagetovideocreditsused ?? 0,
+        analysisCreditsUnlimited: dbUser.analysisCreditsUnlimited ?? dbUser.analysiscreditsunlimited ?? true,
+      }
+    : {
+        generationCreditsTotal: ownerCredits.generationCredits,
+        generationCreditsUsed: 0,
+        videoCreditsTotal: ownerCredits.videoCredits,
+        videoCreditsUsed: 0,
+        voiceCreditsTotal: ownerCredits.voiceCredits,
+        voiceCreditsUsed: 0,
+        voiceCloneCreditsTotal: ownerCredits.voiceCloneCredits,
+        voiceCloneCreditsUsed: 0,
+        ugcCreditsTotal: ownerCredits.ugcCredits,
+        ugcCreditsUsed: 0,
+        imageCreditsTotal: ownerCredits.imageCredits,
+        imageCreditsUsed: 0,
+        imageToVideoCreditsTotal: ownerCredits.imageToVideoCredits,
+        imageToVideoCreditsUsed: 0,
+        analysisCreditsUnlimited: true,
+      };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '850px', margin: '0 auto' }}>
@@ -260,66 +262,13 @@ const ProfileCard = ({ authUser }) => {
               <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>
                 {status}
               </span>
-              {!loading && (
-                <span style={{ fontSize: '0.65rem', fontWeight: 700, color: healthColor, backgroundColor: healthBg, padding: '2px 8px', borderRadius: '10px' }}>
-                  {remainingPct}% Credits ({healthLabel})
-                </span>
-              )}
             </div>
           </div>
         </div>
 
         <div style={{ height: '1px', backgroundColor: 'var(--border)' }} />
 
-        <div style={{ padding: '1rem', backgroundColor: 'var(--bg-sidebar)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <Coins size={16} style={{ color: 'var(--primary)' }} />
-              <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>Your CRM Credits Balance</span>
-            </div>
-            {!loading && (
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: healthColor }}>
-                {remainingPct}% Remaining
-              </span>
-            )}
-          </div>
 
-          {loading ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />
-              Loading credits from database…
-            </div>
-          ) : (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
-                <div>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Available</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#10b981' }}>{available.toLocaleString()}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Balance</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{total.toLocaleString()}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Allocated / Used</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-secondary)' }}>{used.toLocaleString()} ({usedPct}%)</div>
-                </div>
-              </div>
-
-              <div style={{ height: '8px', width: '100%', borderRadius: '4px', backgroundColor: 'var(--border)', overflow: 'hidden' }}>
-                <div
-                  style={{
-                    height: '100%',
-                    borderRadius: '4px',
-                    backgroundColor: healthColor,
-                    width: `${Math.min(remainingPct, 100)}%`,
-                    transition: 'width 0.6s ease',
-                  }}
-                />
-              </div>
-            </>
-          )}
-        </div>
 
         <UsageCreditsDashboard user={userForDashboard} dbUserCredits={{ available, total }} />
 

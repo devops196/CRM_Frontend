@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom';
  */
 export const CreditInfoTooltip = ({ description, creditName }) => {
   const [visible, setVisible] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const iconRef = useRef(null);
   const tooltipId = useId();
@@ -49,6 +50,8 @@ export const CreditInfoTooltip = ({ description, creditName }) => {
     Math.max(pos.left - TIP_W / 2, 8),
     window.innerWidth - TIP_W - 8
   ) : pos.left - TIP_W / 2;
+
+  const active = visible || isHovered;
 
   const tooltipEl = (
     <span
@@ -118,10 +121,10 @@ export const CreditInfoTooltip = ({ description, creditName }) => {
         aria-label={`What are ${creditName}?`}
         aria-describedby={tooltipId}
         tabIndex={0}
-        onMouseEnter={show}
-        onMouseLeave={hide}
-        onFocus={show}
-        onBlur={hide}
+        onMouseEnter={() => { setIsHovered(true); show(); }}
+        onMouseLeave={() => { setIsHovered(false); hide(); }}
+        onFocus={() => { setIsHovered(true); show(); }}
+        onBlur={() => { setIsHovered(false); hide(); }}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
@@ -133,19 +136,20 @@ export const CreditInfoTooltip = ({ description, creditName }) => {
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: '13px',
-          height: '13px',
+          width: '14px',
+          height: '14px',
           borderRadius: '50%',
-          border: `1px solid ${visible ? 'rgba(204,255,0,0.55)' : 'rgba(136,152,130,0.45)'}`,
-          color: visible ? 'rgba(204,255,0,0.85)' : 'rgba(136,152,130,0.75)',
-          fontSize: '8px',
+          border: `1px solid ${active ? 'rgba(204, 255, 0, 0.45)' : 'var(--border, #243022)'}`,
+          color: active ? 'var(--primary, #ccff00)' : 'var(--text-muted, #889882)',
+          backgroundColor: active ? 'rgba(204, 255, 0, 0.08)' : 'transparent',
+          fontSize: '9px',
           fontWeight: 700,
           lineHeight: 1,
-          cursor: 'default',
+          cursor: 'pointer',
           outline: 'none',
           flexShrink: 0,
           userSelect: 'none',
-          transition: 'border-color 0.15s, color 0.15s',
+          transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
           fontFamily: 'Georgia, serif',
         }}
       >

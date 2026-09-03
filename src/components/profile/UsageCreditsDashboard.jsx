@@ -152,37 +152,37 @@ export const UsageCreditsDashboard = ({
         border="1px solid"
         borderColor="var(--border, #1a2217)"
         borderRadius="xl"
-        p={{ base: 3, md: 4 }}
+        p={{ base: 2.5, md: 3 }}
         boxShadow="0 4px 20px rgba(0, 0, 0, 0.35)"
         display="flex"
         flexDirection="column"
-        gap={3}
+        gap={2}
       >
         <Flex
           direction={{ base: 'column', sm: 'row' }}
           justify="space-between"
           align={{ base: 'start', sm: 'center' }}
-          gap={3}
+          gap={2}
         >
           <VStack align="start" gap={0.5}>
             <HStack gap={1.5}>
-              <Zap size={16} style={{ color: 'var(--primary, #ccff00)' }} />
-              <Heading size="sm" color="var(--text-primary, #ffffff)" fontFamily="var(--font-display)" fontWeight="800">
+              <Zap size={15} style={{ color: 'var(--primary, #ccff00)' }} />
+              <Heading size="xs" color="var(--text-primary, #ffffff)" fontFamily="var(--font-display)" fontWeight="800">
                 Usage & Credits
               </Heading>
             </HStack>
-            <Text fontSize="11px" color="var(--text-muted, #889882)">
+            <Text fontSize="10.5px" color="var(--text-muted, #889882)">
               Real-time usage breakdown across all subscription AI modules.
             </Text>
           </VStack>
 
-          <HStack gap={2} flexWrap="wrap">
+          <HStack gap={1.5} flexWrap="wrap">
             {displayName && (
               <Badge
-                px={2.5}
-                py={1}
+                px={2}
+                py={0.5}
                 borderRadius="full"
-                fontSize="xs"
+                fontSize="10px"
                 fontWeight="700"
                 bg="rgba(204, 255, 0, 0.1)"
                 border="1px solid"
@@ -193,10 +193,10 @@ export const UsageCreditsDashboard = ({
               </Badge>
             )}
             <Badge
-              px={3}
-              py={1}
+              px={2.5}
+              py={0.5}
               borderRadius="full"
-              fontSize="xs"
+              fontSize="10px"
               fontWeight="700"
               bg="var(--bg-sidebar, #0a0d0a)"
               border="1px solid"
@@ -208,9 +208,9 @@ export const UsageCreditsDashboard = ({
           </HStack>
         </Flex>
 
-        <Box height="1px" bg="var(--border, #1a2217)" width="100%" />
+        <Box height="1px" bg="var(--border, #1a2217)" width="100%" my={0.5} />
 
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap={2.5}>
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap={2}>
           {creditItems.map((item) => (
             <CreditCard key={item.id} item={item} />
           ))}

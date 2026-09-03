@@ -142,9 +142,9 @@ const initialInvoices = [
     paidAt: '2026-07-02T16:00:00Z',
     transactionId: 'txn_98231908231',
     items: [
-      { description: 'Antigravity CRM Enterprise Plan Monthly', quantity: 1, unitPrice: 4500.00 }
+      { description: 'Quickads CRM Enterprise Plan Monthly', quantity: 1, unitPrice: 4500.00 }
     ],
-    qrCode: 'ANTIGRAVITY-INV-2026-001'
+    qrCode: 'QUICKADS-INV-2026-001'
   },
   {
     id: 'inv_2',
@@ -157,9 +157,9 @@ const initialInvoices = [
     paidAt: '2026-07-05T09:12:00Z',
     transactionId: 'txn_12390881232',
     items: [
-      { description: 'Antigravity CRM Enterprise Plan Monthly', quantity: 1, unitPrice: 3800.00 }
+      { description: 'Quickads CRM Enterprise Plan Monthly', quantity: 1, unitPrice: 3800.00 }
     ],
-    qrCode: 'ANTIGRAVITY-INV-2026-002'
+    qrCode: 'QUICKADS-INV-2026-002'
   },
   {
     id: 'inv_3',
@@ -170,10 +170,10 @@ const initialInvoices = [
     status: 'pending',
     dueDate: '2026-07-25',
     items: [
-      { description: 'Antigravity CRM Business Plan Monthly', quantity: 1, unitPrice: 1500.00 },
+      { description: 'Quickads CRM Business Plan Monthly', quantity: 1, unitPrice: 1500.00 },
       { description: 'Setup and API Integration Consultancy', quantity: 1, unitPrice: 0.00 }
     ],
-    qrCode: 'ANTIGRAVITY-INV-2026-003'
+    qrCode: 'QUICKADS-INV-2026-003'
   }
 ];
 
@@ -394,7 +394,7 @@ export const CRMStateProvider = ({ children }) => {
       status: 'pending',
       dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       items: [
-        { description: `Antigravity CRM System Setup Opportunity Fee for ${lead.company}`, quantity: 1, unitPrice: lead.value }
+        { description: `Quickads CRM Setup Fee for ${lead.company}`, quantity: 1, unitPrice: lead.value }
       ]
     });
 
@@ -409,7 +409,7 @@ export const CRMStateProvider = ({ children }) => {
       ...invoice,
       id: `inv_${Date.now()}`,
       invoiceNumber,
-      qrCode: `ANTIGRAVITY-${invoiceNumber}`
+      qrCode: `QUICKADS-${invoiceNumber}`
     };
     setInvoices((prev) => [newInvoice, ...prev]);
     addAuditLog(`Generated Invoice: ${invoiceNumber} for ${invoice.companyName}`, 'System', 'Finance');
