@@ -162,15 +162,20 @@ const AdminAddCreditsModal = ({
     setUpdatingPlan(false);
     if (res.success) {
       setPlanMessage(`Plan successfully updated to ${selectedPlan.toUpperCase()}! Hardcoded limits applied.`);
-      if (res.data) {
-        targetUser.subscriptionPlan = res.data.subscriptionPlan;
-        targetUser.generationCreditsTotal = res.data.generationCreditsTotal;
-        targetUser.videoCreditsTotal = res.data.videoCreditsTotal;
-        targetUser.voiceCreditsTotal = res.data.voiceCreditsTotal;
-        targetUser.voiceCloneCreditsTotal = res.data.voiceCloneCreditsTotal;
-        targetUser.ugcCreditsTotal = res.data.ugcCreditsTotal;
-        targetUser.imageCreditsTotal = res.data.imageCreditsTotal;
-        targetUser.imageToVideoCreditsTotal = res.data.imageToVideoCreditsTotal;
+      const limits = res.updated_credits || res.data;
+      const newPlan = res.data?.subscriptionPlan || selectedPlan;
+      
+      targetUser.subscriptionPlan = newPlan;
+      targetUser.subscription_plan = newPlan;
+
+      if (limits) {
+        targetUser.generationCreditsTotal = limits.generationCreditsTotal ?? limits.generationcreditstotal ?? targetUser.generationCreditsTotal;
+        targetUser.videoCreditsTotal = limits.videoCreditsTotal ?? limits.videocreditstotal ?? targetUser.videoCreditsTotal;
+        targetUser.voiceCreditsTotal = limits.voiceCreditsTotal ?? limits.voicecreditstotal ?? targetUser.voiceCreditsTotal;
+        targetUser.voiceCloneCreditsTotal = limits.voiceCloneCreditsTotal ?? limits.voiceclonecreditstotal ?? targetUser.voiceCloneCreditsTotal;
+        targetUser.ugcCreditsTotal = limits.ugcCreditsTotal ?? limits.ugccreditstotal ?? targetUser.ugcCreditsTotal;
+        targetUser.imageCreditsTotal = limits.imageCreditsTotal ?? limits.imagecreditstotal ?? targetUser.imageCreditsTotal;
+        targetUser.imageToVideoCreditsTotal = limits.imageToVideoCreditsTotal ?? limits.imagetovideocreditstotal ?? targetUser.imageToVideoCreditsTotal;
       }
     } else {
       setPlanMessage(`Error: ${res.message || 'Failed to update subscription plan.'}`);
