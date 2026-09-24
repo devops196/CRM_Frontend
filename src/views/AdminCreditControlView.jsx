@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { fetchTeamMembersFromApi, adminUpdateCreditsApi } from '../services/team.service.js';
 import MemberAvatar from '../components/team/MemberAvatar.jsx';
+import AdminAddCreditsModal from '../components/team/AdminAddCreditsModal.jsx';
 import {
   CreditCard,
   Search,
@@ -437,7 +438,7 @@ export function AdminCreditControlView() {
 
                     <td>
                       <span className={`badge ${healthBadgeClass}`} style={{ fontSize: '0.72rem', fontWeight: 700 }}>
-                        {u.creditHealth.toUpperCase()} ({pct}%)
+                        {(u.creditHealth || 'Healthy').toUpperCase()} ({pct}%)
                       </span>
                     </td>
 
@@ -460,179 +461,78 @@ export function AdminCreditControlView() {
 
       {/* Admin Manage Credits Modal */}
       {isModalOpen && selectedUser && (
-        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '640px' }}>
-            <div className="modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <MemberAvatar
-                  photoURL={selectedUser.photoURL}
-                  initials={selectedUser.initials || selectedUser.name?.charAt(0) || 'U'}
-                  name={selectedUser.name || 'User'}
-                  size={36}
-                />
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>Manage Credits: {selectedUser.name}</h3>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    {selectedUser.email} • ID: {selectedUser.employeeId}
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.2rem', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
-            </div>
+        <AdminAddCreditsModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedUser(null);
+          }}
+          targetUser={selectedUser}
+          onConfirmAddCredits={async (deltas, targetUser, updatedTotals) => {
+            const callerEmail = authUser?.email || 'dhanush@quickads.ai';
+            const targetId = targetUser.employeeId || targetUser.id || targetUser.email;
+            setSaving(true);
+            const result = await adminUpdateCreditsApi(
+              callerEmail,
+              targetId,
+              updatedTotals || deltas,
+              'set',
+              resetUsed
+            );
+            setSaving(false);
+            if (result.success && result.data) {
+              setNotification({
+                type: 'success',
+                message: `Successfully updated credit allocations for ${selectedUser.name}!`,
+              });
+              setUsers((prev) =>
+                prev.map((u) => {
+                  if (u.id === selectedUser.id || u.employeeId === selectedUser.employeeId || u.email === selectedUser.email) {
+                    const merged = { ...u, ...result.data };
+                    const genTotal = merged.generationCreditsTotal ?? merged.generationCredits ?? u.generationCreditsTotal ?? u.totalCredits ?? 0;
+                    const vidTotal = merged.videoCreditsTotal ?? merged.videoCredits ?? u.videoCreditsTotal ?? 0;
+                    const voiceTotal = merged.voiceCreditsTotal ?? merged.voiceCredits ?? u.voiceCreditsTotal ?? 0;
+                    const voiceCloneTotal = merged.voiceCloneCreditsTotal ?? merged.voiceCloneCredits ?? u.voiceCloneCreditsTotal ?? 0;
+                    const ugcTotal = merged.ugcCreditsTotal ?? merged.ugcCredits ?? u.ugcCreditsTotal ?? 0;
+                    const imgTotal = merged.imageCreditsTotal ?? merged.imageCredits ?? u.imageCreditsTotal ?? 0;
+                    const imgVidTotal = merged.imageToVideoCreditsTotal ?? merged.imageToVideoCredits ?? u.imageToVideoCreditsTotal ?? 0;
+                    const totalCredits = genTotal;
+                    const avail = merged.creditsAvailable ?? Math.max(0, totalCredits - (u.generationCreditsUsed || 0));
+                    const remPct = totalCredits > 0 ? Math.round((avail / totalCredits) * 100) : 100;
+                    let health = 'Healthy';
+                    if (remPct < 30) health = 'Critical';
+                    else if (remPct <= 70) health = 'Warning';
 
-            <form onSubmit={handleSaveCreditUpdate}>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                {/* Mode Selector */}
-                <div style={{ display: 'flex', gap: '0.5rem', backgroundColor: 'var(--bg-sidebar)', padding: '0.3rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                  <button
-                    type="button"
-                    onClick={() => setUpdateMode('set')}
-                    className={`btn ${updateMode === 'set' ? 'btn-primary' : 'btn-ghost'}`}
-                    style={{ flex: 1, padding: '0.4rem', fontSize: '0.82rem' }}
-                  >
-                    Set Fixed Totals
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUpdateMode('add')}
-                    className={`btn ${updateMode === 'add' ? 'btn-primary' : 'btn-ghost'}`}
-                    style={{ flex: 1, padding: '0.4rem', fontSize: '0.82rem' }}
-                  >
-                    Add Incremental Credits
-                  </button>
-                </div>
-
-                {/* Reset Used Toggle */}
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.85rem', color: 'var(--text-primary)', cursor: 'pointer', backgroundColor: 'var(--bg-sidebar)', padding: '0.6rem 0.8rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                  <input
-                    type="checkbox"
-                    className="form-checkbox"
-                    checked={resetUsed}
-                    onChange={(e) => setResetUsed(e.target.checked)}
-                  />
-                  <span>Reset used credit counts to 0 (refreshes full credit balance)</span>
-                </label>
-
-                {/* Credit Type Inputs */}
-                <div className="grid-2" style={{ gap: '1rem' }}>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">
-                      <span><Zap size={14} style={{ display: 'inline', marginRight: '4px' }} /> Generation Credits</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="form-input"
-                      value={creditForm.generationCredits}
-                      onChange={(e) => setCreditForm({ ...creditForm, generationCredits: parseInt(e.target.value) || 0 })}
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">
-                      <span><Video size={14} style={{ display: 'inline', marginRight: '4px' }} /> Video Credits</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="form-input"
-                      value={creditForm.videoCredits}
-                      onChange={(e) => setCreditForm({ ...creditForm, videoCredits: parseInt(e.target.value) || 0 })}
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">
-                      <span><Mic size={14} style={{ display: 'inline', marginRight: '4px' }} /> Voice Credits</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="form-input"
-                      value={creditForm.voiceCredits}
-                      onChange={(e) => setCreditForm({ ...creditForm, voiceCredits: parseInt(e.target.value) || 0 })}
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">
-                      <span><Mic size={14} style={{ display: 'inline', marginRight: '4px' }} /> Voice Clone Credits</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="form-input"
-                      value={creditForm.voiceCloneCredits}
-                      onChange={(e) => setCreditForm({ ...creditForm, voiceCloneCredits: parseInt(e.target.value) || 0 })}
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">
-                      <span><Sparkles size={14} style={{ display: 'inline', marginRight: '4px' }} /> UGC Credits</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="form-input"
-                      value={creditForm.ugcCredits}
-                      onChange={(e) => setCreditForm({ ...creditForm, ugcCredits: parseInt(e.target.value) || 0 })}
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">
-                      <span><ImageIcon size={14} style={{ display: 'inline', marginRight: '4px' }} /> Image Credits</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="form-input"
-                      value={creditForm.imageCredits}
-                      onChange={(e) => setCreditForm({ ...creditForm, imageCredits: parseInt(e.target.value) || 0 })}
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: 0, gridColumn: 'span 2' }}>
-                    <label className="form-label">
-                      <span><Video size={14} style={{ display: 'inline', marginRight: '4px' }} /> Image-to-Video Credits</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="form-input"
-                      value={creditForm.imageToVideoCredits}
-                      onChange={(e) => setCreditForm({ ...creditForm, imageToVideoCredits: parseInt(e.target.value) || 0 })}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="btn btn-secondary"
-                  disabled={saving}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={saving}
-                >
-                  {saving ? 'Persisting to Database...' : 'Save Credit Changes'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+                    return {
+                      ...merged,
+                      generationCreditsTotal: genTotal,
+                      videoCreditsTotal: vidTotal,
+                      voiceCreditsTotal: voiceTotal,
+                      voiceCloneCreditsTotal: voiceCloneTotal,
+                      ugcCreditsTotal: ugcTotal,
+                      imageCreditsTotal: imgTotal,
+                      imageToVideoCreditsTotal: imgVidTotal,
+                      totalCredits,
+                      creditsAvailable: avail,
+                      remainingPercentage: remPct,
+                      creditHealth: health,
+                    };
+                  }
+                  return u;
+                })
+              );
+              setIsModalOpen(false);
+              setSelectedUser(null);
+              return true;
+            } else {
+              setNotification({
+                type: 'error',
+                message: result.message || 'Failed to update credit allocation in database.',
+              });
+              return false;
+            }
+          }}
+        />
       )}
     </div>
   );

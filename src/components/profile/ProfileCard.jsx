@@ -303,7 +303,7 @@ const ProfileCard = ({ authUser }) => {
             <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>My Team ({myTeam.length})</h3>
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            Explicitly added team members
+           
           </span>
         </div>
 

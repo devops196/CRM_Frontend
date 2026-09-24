@@ -118,9 +118,7 @@ export const AuthPages = ({ onAuthSuccess }) => {
               closes deals faster.
             </span>
           </h1>
-          <p style={{ fontSize: '0.85rem', color: 'rgba(160,185,150,0.85)', lineHeight: 1.6, margin: 0, maxWidth: '370px' }}>
-            Streamline your entire revenue operation — from first contact to closed-won — with intelligent automation, real-time insights, and a team-first workspace.
-          </p>
+         
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', position: 'relative', zIndex: 1, marginBottom: '1.5rem' }}>

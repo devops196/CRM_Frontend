@@ -28,7 +28,6 @@ export const SUBSCRIPTION_PLANS = [
   { label: 'Enterprise', value: 'enterprise' },
 ];
 
-
 const CREDIT_TYPES = [
   {
     key: 'generationCredits',
@@ -112,9 +111,23 @@ const CREDIT_TYPES = [
   },
 ];
 
+const getCurrentBalance = (user, type) => {
+  if (!user || !type.dbKey) return 0;
+  return user[type.dbKey] ?? user[type.key] ?? 0;
+};
+
+const getInitialCredits = (user) => {
+  const init = {};
+  CREDIT_TYPES.forEach((type) => {
+    if (type.isUnlimited || !type.key) return;
+    init[type.key] = getCurrentBalance(user, type);
+  });
+  return init;
+};
+
 /**
  * Admin-only credit management modal.
- * Adds credits directly to the selected user's balance without deducting from admin.
+ * Modifies credit totals directly for the selected user.
  */
 const AdminAddCreditsModal = ({
   isOpen,
@@ -122,33 +135,21 @@ const AdminAddCreditsModal = ({
   targetUser,
   onConfirmAddCredits,
 }) => {
-  const [additions, setAdditions] = useState({
-    generationCredits: 0,
-    videoCredits: 0,
-    voiceCredits: 0,
-    voiceCloneCredits: 0,
-    ugcCredits: 0,
-    imageCredits: 0,
-    imageToVideoCredits: 0,
-  });
+  const [credits, setCredits] = useState(() => getInitialCredits(targetUser));
   const [submitting, setSubmitting] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState(targetUser?.subscriptionPlan || targetUser?.subscription_plan || 'discover');
+  const [saveError, setSaveError] = useState(null);
+  const [selectedPlan, setSelectedPlan] = useState(
+    targetUser?.subscriptionPlan || targetUser?.subscription_plan || 'discover'
+  );
   const [updatingPlan, setUpdatingPlan] = useState(false);
   const [planMessage, setPlanMessage] = useState(null);
 
   useEffect(() => {
     if (isOpen && targetUser) {
-      setAdditions({
-        generationCredits: 0,
-        videoCredits: 0,
-        voiceCredits: 0,
-        voiceCloneCredits: 0,
-        ugcCredits: 0,
-        imageCredits: 0,
-        imageToVideoCredits: 0,
-      });
+      setCredits(getInitialCredits(targetUser));
       setSelectedPlan(targetUser.subscriptionPlan || targetUser.subscription_plan || 'discover');
       setSubmitting(false);
+      setSaveError(null);
       setUpdatingPlan(false);
       setPlanMessage(null);
     }
@@ -176,6 +177,8 @@ const AdminAddCreditsModal = ({
         targetUser.ugcCreditsTotal = limits.ugcCreditsTotal ?? limits.ugccreditstotal ?? targetUser.ugcCreditsTotal;
         targetUser.imageCreditsTotal = limits.imageCreditsTotal ?? limits.imagecreditstotal ?? targetUser.imageCreditsTotal;
         targetUser.imageToVideoCreditsTotal = limits.imageToVideoCreditsTotal ?? limits.imagetovideocreditstotal ?? targetUser.imageToVideoCreditsTotal;
+
+        setCredits(getInitialCredits(targetUser));
       }
     } else {
       setPlanMessage(`Error: ${res.message || 'Failed to update subscription plan.'}`);
@@ -193,32 +196,85 @@ const AdminAddCreditsModal = ({
   if (!isOpen || !targetUser) return null;
 
   const handleIncrement = (key) => {
-    setAdditions((prev) => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+    setCredits((prev) => {
+      const cur = Number(prev[key]) || 0;
+      return { ...prev, [key]: cur + 1 };
+    });
   };
 
   const handleDecrement = (key) => {
-    setAdditions((prev) => {
-      const cur = prev[key] || 0;
+    setCredits((prev) => {
+      const cur = Number(prev[key]) || 0;
       if (cur <= 0) return prev;
       return { ...prev, [key]: cur - 1 };
     });
   };
 
+  const handleInputChange = (key, rawVal) => {
+    if (rawVal === '') {
+      setCredits((prev) => ({ ...prev, [key]: '' }));
+      return;
+    }
+    const parsed = parseInt(rawVal, 10);
+    setCredits((prev) => ({
+      ...prev,
+      [key]: isNaN(parsed) ? 0 : Math.max(0, parsed),
+    }));
+  };
+
+  const handleInputBlur = (key) => {
+    setCredits((prev) => {
+      const val = prev[key];
+      if (val === '' || val === undefined || isNaN(val)) {
+        const typeObj = CREDIT_TYPES.find((t) => t.key === key);
+        return { ...prev, [key]: getCurrentBalance(targetUser, typeObj) };
+      }
+      return prev;
+    });
+  };
+
   const handleConfirm = async () => {
     setSubmitting(true);
+    setSaveError(null);
+    const deltas = {};
+    const updatedTotals = {};
+
+    CREDIT_TYPES.forEach((type) => {
+      if (type.isUnlimited || !type.key) return;
+      const initialVal = getCurrentBalance(targetUser, type);
+      const currentVal = Number(credits[type.key]) || 0;
+      updatedTotals[type.key] = currentVal;
+      deltas[type.key] = currentVal - initialVal;
+    });
+
+    let success = true;
     if (onConfirmAddCredits) {
-      await onConfirmAddCredits(additions, targetUser);
+      try {
+        const result = await onConfirmAddCredits(deltas, targetUser, updatedTotals);
+        // onConfirmAddCredits should return true on success, false or a string on failure
+        if (result === false || (typeof result === 'string' && result.startsWith('Error'))) {
+          success = false;
+          setSaveError(typeof result === 'string' ? result : 'Failed to save credit changes. Please try again.');
+        }
+      } catch (err) {
+        success = false;
+        setSaveError(err?.message || 'Unexpected error saving credits.');
+      }
     }
+
     setSubmitting(false);
-    onClose();
+    // Only auto-close on success; on error, keep modal open so user sees the message
+    if (success) {
+      onClose();
+    }
   };
 
-  const totalAdding = Object.values(additions).reduce((a, b) => a + (Number(b) || 0), 0);
-
-  const getCurrentBalance = (type) => {
-    if (!targetUser || !type.dbKey) return 0;
-    return targetUser[type.dbKey] ?? 0;
-  };
+  const hasChanges = CREDIT_TYPES.some((type) => {
+    if (type.isUnlimited || !type.key) return false;
+    const initialVal = getCurrentBalance(targetUser, type);
+    const currentVal = Number(credits[type.key]) || 0;
+    return currentVal !== initialVal;
+  });
 
   return (
     <div
@@ -256,7 +312,7 @@ const AdminAddCreditsModal = ({
           animation: 'slideInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
-        {/* ── Header ── */}
+        {/* Header */}
         <div
           style={{
             padding: '1.25rem 1.5rem',
@@ -297,9 +353,6 @@ const AdminAddCreditsModal = ({
               >
                 Manage User Credits
               </h3>
-              <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: '#a78bfa' }}>
-                Admin mode — credits added directly, your balance unchanged
-              </p>
             </div>
           </div>
           <button
@@ -319,7 +372,7 @@ const AdminAddCreditsModal = ({
           </button>
         </div>
 
-        {/* ── Target User Block ── */}
+        {/* Target User Block */}
         <div
           style={{
             display: 'flex',
@@ -344,7 +397,7 @@ const AdminAddCreditsModal = ({
               {targetUser.email}
             </div>
           </div>
-          {totalAdding > 0 && (
+          {hasChanges && (
             <span
               style={{
                 fontSize: '0.72rem',
@@ -357,12 +410,12 @@ const AdminAddCreditsModal = ({
                 whiteSpace: 'nowrap',
               }}
             >
-              +{totalAdding} Credits
+              Modified Credits
             </span>
           )}
         </div>
 
-        {/* ── Subscription Plan Switcher ── */}
+        {/* Subscription Plan Switcher */}
         <div
           style={{
             margin: '0.85rem 1.5rem 0.25rem 1.5rem',
@@ -436,7 +489,7 @@ const AdminAddCreditsModal = ({
           )}
         </div>
 
-        {/* ── Body (Scrollable) ── */}
+        {/* Body (Scrollable) */}
         <div
           style={{
             padding: '1rem 1.5rem',
@@ -493,9 +546,11 @@ const AdminAddCreditsModal = ({
               );
             }
 
-            const currentBalance = getCurrentBalance(type);
-            const adding = additions[type.key] || 0;
-            const newBalance = currentBalance + adding;
+            const currentBalance = getCurrentBalance(targetUser, type);
+            const val = credits[type.key] !== undefined ? credits[type.key] : currentBalance;
+            const numericVal = Number(val) || 0;
+            const delta = numericVal - currentBalance;
+            const isModified = delta !== 0;
 
             return (
               <div
@@ -507,7 +562,7 @@ const AdminAddCreditsModal = ({
                   gap: '1rem',
                   padding: '0.75rem 1rem',
                   backgroundColor: 'var(--bg-card, #131a12)',
-                  border: `1px solid ${adding > 0 ? type.color + '55' : 'var(--border, #1a2217)'}`,
+                  border: `1px solid ${isModified ? type.color + '77' : 'var(--border, #1a2217)'}`,
                   borderRadius: 'var(--radius-sm, 10px)',
                   transition: 'border-color 0.2s ease',
                 }}
@@ -533,11 +588,11 @@ const AdminAddCreditsModal = ({
                       <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                         Current: <strong style={{ color: 'var(--text-secondary)' }}>{currentBalance}</strong>
                       </span>
-                      {adding > 0 && (
+                      {isModified && (
                         <>
                           <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>→</span>
-                          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#10b981' }}>
-                            New: {newBalance}
+                          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: delta > 0 ? '#10b981' : '#f59e0b' }}>
+                            New: {numericVal} ({delta > 0 ? `+${delta}` : delta})
                           </span>
                         </>
                       )}
@@ -545,39 +600,46 @@ const AdminAddCreditsModal = ({
                   </div>
                 </div>
 
-                {/* Right: − count + controls */}
+                {/* Right: − button + numeric input + + button */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexShrink: 0 }}>
                   <button
                     type="button"
                     onClick={() => handleDecrement(type.key)}
-                    disabled={adding <= 0}
+                    disabled={numericVal <= 0}
                     style={{
                       width: '28px', height: '28px', borderRadius: '6px',
                       border: '1px solid var(--border, #1a2217)',
-                      backgroundColor: adding <= 0 ? 'rgba(255,255,255,0.03)' : 'var(--bg-sidebar)',
-                      color: adding <= 0 ? 'rgba(255,255,255,0.2)' : 'var(--text-primary)',
+                      backgroundColor: numericVal <= 0 ? 'rgba(255,255,255,0.03)' : 'var(--bg-sidebar)',
+                      color: numericVal <= 0 ? 'rgba(255,255,255,0.2)' : 'var(--text-primary)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      cursor: adding <= 0 ? 'not-allowed' : 'pointer',
+                      cursor: numericVal <= 0 ? 'not-allowed' : 'pointer',
                       transition: 'all 0.15s ease',
                     }}
+                    title="Decrement credit amount"
                   >
                     <Minus size={12} />
                   </button>
 
-                  <div
+                  <input
+                    type="number"
+                    min="0"
+                    value={val}
+                    onChange={(e) => handleInputChange(type.key, e.target.value)}
+                    onBlur={() => handleInputBlur(type.key)}
                     style={{
-                      minWidth: '34px', height: '28px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      backgroundColor: 'var(--bg-sidebar)',
-                      border: `1px solid ${adding > 0 ? type.color : 'var(--border, #1a2217)'}`,
+                      width: '72px',
+                      height: '28px',
+                      textAlign: 'center',
+                      backgroundColor: 'var(--bg-sidebar, #0a0d0a)',
+                      border: `1px solid ${isModified ? type.color : 'var(--border, #1a2217)'}`,
                       borderRadius: '6px',
-                      fontSize: '0.88rem', fontWeight: 800,
-                      color: adding > 0 ? type.color : 'var(--text-primary)',
-                      padding: '0 5px',
+                      fontSize: '0.88rem',
+                      fontWeight: 800,
+                      color: isModified ? type.color : 'var(--text-primary, #ffffff)',
+                      outline: 'none',
+                      padding: '0 4px',
                     }}
-                  >
-                    {adding}
-                  </div>
+                  />
 
                   <button
                     type="button"
@@ -591,6 +653,7 @@ const AdminAddCreditsModal = ({
                       cursor: 'pointer',
                       transition: 'all 0.15s ease',
                     }}
+                    title="Increment credit amount"
                   >
                     <Plus size={12} />
                   </button>
@@ -600,7 +663,7 @@ const AdminAddCreditsModal = ({
           })}
         </div>
 
-        {/* ── Footer ── */}
+        {/* Footer */}
         <div
           style={{
             padding: '1rem 1.5rem',
@@ -609,12 +672,16 @@ const AdminAddCreditsModal = ({
             alignItems: 'center',
             justifyContent: 'space-between',
             backgroundColor: 'var(--bg-card, #131a12)',
+            flexWrap: 'wrap',
+            gap: '0.5rem',
           }}
         >
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-            {totalAdding > 0
-              ? `Adding +${totalAdding} credits to ${targetUser.name.split(' ')[0]}`
-              : 'Select credits to add'}
+          <div style={{ fontSize: '0.78rem', color: saveError ? '#ef4444' : 'var(--text-muted)', flex: 1, minWidth: 0 }}>
+            {saveError
+              ? saveError
+              : hasChanges
+              ? `Updating credit limits for ${targetUser.name.split(' ')[0]}`
+              : 'Adjust credits using - / + or direct entry'}
           </div>
 
           <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -629,7 +696,7 @@ const AdminAddCreditsModal = ({
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={submitting || totalAdding === 0}
+              disabled={submitting}
               style={{
                 padding: '0.55rem 1.25rem',
                 fontSize: '0.85rem',
@@ -638,15 +705,15 @@ const AdminAddCreditsModal = ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.4rem',
-                backgroundColor: totalAdding === 0 ? 'rgba(139,92,246,0.3)' : '#8b5cf6',
+                backgroundColor: '#8b5cf6',
                 color: '#fff',
                 border: 'none',
-                cursor: submitting || totalAdding === 0 ? 'not-allowed' : 'pointer',
+                cursor: submitting ? 'not-allowed' : 'pointer',
                 transition: 'background-color 0.2s ease',
               }}
             >
               <Check size={16} />
-              {submitting ? 'Adding...' : 'Add Credits'}
+              {submitting ? 'Saving...' : 'Save Credits'}
             </button>
           </div>
         </div>

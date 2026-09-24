@@ -241,6 +241,8 @@ function saveIdentitySession(user) {
     orgName: user.orgName,
     role: user.role,
     status: user.status,
+    creditsAvailable: user.creditsAvailable,
+    totalCredits: user.totalCredits,
   };
   localStorage.setItem(SESSION_KEY, JSON.stringify(identity));
 }

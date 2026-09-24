@@ -172,7 +172,7 @@ export const UsageCreditsDashboard = ({
               </Heading>
             </HStack>
             <Text fontSize="10.5px" color="var(--text-muted, #889882)">
-              Real-time usage breakdown across all subscription AI modules.
+             
             </Text>
           </VStack>
 

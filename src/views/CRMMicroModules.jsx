@@ -9,7 +9,7 @@ import dynamic from 'next/dynamic';
 const UsageCreditsDashboard = dynamic(() => import('../components/profile/UsageCreditsDashboard.jsx'), { ssr: false });
 import AllocateCreditsModal from '../components/team/AllocateCreditsModal.jsx';
 import AdminAddCreditsModal from '../components/team/AdminAddCreditsModal.jsx';
-import { fetchTeamMembersFromApi, fetchUserByIdentifierFromApi, allocateCreditsApi, adminAddCreditsApi } from '../services/team.service.js';
+import { fetchTeamMembersFromApi, fetchUserByIdentifierFromApi, allocateCreditsApi, adminAddCreditsApi, adminUpdateCreditsApi } from '../services/team.service.js';
 
 /* ==========================================================================
    COMPONENT: CUSTOMERS DIRECTORY
@@ -576,19 +576,23 @@ export const TeamLookupView = () => {
     setActionMessage(null);
   };
 
-  // Handle admin adding credits
-  const handleConfirmAdminAddCredits = async (additions, targetUser) => {
+  // Handle admin adding/updating credits
+  const handleConfirmAdminAddCredits = async (deltas, targetUser, updatedTotals) => {
     const callerEmail = authUser?.email || 'dhanush@quickads.ai';
     const targetId = targetUser.employeeId || targetUser.id || targetUser.email;
-    const result = await adminAddCreditsApi(callerEmail, targetId, additions);
+    const result = updatedTotals
+      ? await adminUpdateCreditsApi(callerEmail, targetId, updatedTotals, 'set')
+      : await adminAddCreditsApi(callerEmail, targetId, deltas);
     if (result.success && result.data) {
       setSelectedUser(result.data);
-      setActionMessage(`Credits successfully added to ${targetUser.name}.`);
+      setActionMessage(`Credits successfully updated for ${targetUser.name}.`);
       await loadAllUsers();
+      setIsAdminModalOpen(false);
+      return true;
     } else {
-      setActionMessage(`Error: ${result.message || 'Failed to add credits.'}`);
+      setActionMessage(`Error: ${result.message || 'Failed to update credits.'}`);
+      return false;
     }
-    setIsAdminModalOpen(false);
   };
 
   return (
@@ -934,17 +938,21 @@ export const UserCreditDetailsView = ({ identifier, onBack }) => {
     setIsAllocateModalOpen(false);
   };
 
-  const handleConfirmAdminAddCredits = async (additions, targetUser) => {
+  const handleConfirmAdminAddCredits = async (deltas, targetUser, updatedTotals) => {
     const callerEmail = authUser?.email || 'dhanush@quickads.ai';
     const targetId = targetUser.employeeId || targetUser.id || targetUser.email;
-    const result = await adminAddCreditsApi(callerEmail, targetId, additions);
+    const result = updatedTotals
+      ? await adminUpdateCreditsApi(callerEmail, targetId, updatedTotals, 'set')
+      : await adminAddCreditsApi(callerEmail, targetId, deltas);
     if (result.success && result.data) {
       setUser(result.data);
-      setActionMessage(`Credits successfully added to ${targetUser.name}.`);
+      setActionMessage(`Credits successfully updated for ${targetUser.name}.`);
+      setIsAdminModalOpen(false);
+      return true;
     } else {
-      setActionMessage(`Error: ${result.message || 'Failed to add credits.'}`);
+      setActionMessage(`Error: ${result.message || 'Failed to update credits.'}`);
+      return false;
     }
-    setIsAdminModalOpen(false);
   };
 
   if (loading) {
