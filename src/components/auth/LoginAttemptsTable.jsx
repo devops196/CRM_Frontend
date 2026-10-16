@@ -59,8 +59,13 @@ export const LoginAttemptsTable = () => {
 
   const fetchAttempts = async () => {
     setLoading(true);
+    const baseUrl = (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_API_URL)
+      ? process.env.NEXT_PUBLIC_API_URL
+      : (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+        ? 'http://localhost:8000'
+        : '';
     try {
-      const res = await fetch('http://localhost:8000/api/v1/auth/login-attempts');
+      const res = await fetch(`${baseUrl}/api/v1/auth/login-attempts`);
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.attempts)) {
