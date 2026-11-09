@@ -7,10 +7,11 @@ import {
   CalendarCheck, CalendarDays, Check, CheckCheck, CheckCircle2,
   ChevronDown, CircleAlert, CircleDollarSign, CircleHelp,
   ClipboardCheck, ClipboardList, Clock3, Command, Download,
-  FileSpreadsheet, Filter, LayoutDashboard, LockKeyhole, LogOut,
-  Megaphone, Menu, Moon, Pencil, Plus, RefreshCw, Rocket, Search,
-  Settings, ShieldCheck, SlidersHorizontal, Sparkles, Sun, Target,
-  Trash2, TrendingUp, Users, UserRound, Zap, Layers3, X
+  FileSpreadsheet, Filter, LayoutDashboard, LayoutGrid, LayoutList,
+  LockKeyhole, LogOut, Mail, Megaphone, Menu, Moon, Pencil, Phone,
+  Plus, RefreshCw, Rocket, Search, Settings, ShieldCheck,
+  SlidersHorizontal, Sparkles, Sun, Target, Trash2, TrendingUp,
+  Users, UserRound, Zap, Layers3, X
 } from "lucide-react";
 const API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
@@ -18,7 +19,6 @@ const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
 const NAV = [
   ["Dashboard", LayoutDashboard, "Overview"],
   ["Employees", Users, "People"],
-  ["Team Lookup", UserRound, "Directory"],
   ["Leave Management", CalendarDays, "Time off"],
   ["Credits & Usage", CircleDollarSign, "Benefits"],
   ["Announcements", Megaphone, "Company news"],
@@ -29,55 +29,13 @@ const NAV = [
   ["Settings", Settings, "Workspace"],
 ];
 
-const DEMO_EMPLOYEES = [
-  { id: 1, full_name: "Kuber Singh", email: "admin@company.com", department: "Operations", role: "CRM Administrator", status: "Active", app_role: "Admin", joined_on: "2025-07-01", phone: "9000000001" },
-  { id: 2, full_name: "Neha Gupta", email: "neha.hr@company.com", department: "HR", role: "HR Manager", status: "Active", app_role: "HR", joined_on: "2025-08-12", phone: "9000000002" },
-  { id: 3, full_name: "Vikram Joshi", email: "vikram.hr@company.com", department: "HR", role: "HR Executive", status: "Active", app_role: "HR", joined_on: "2025-09-15", phone: "9000000003" },
-  { id: 4, full_name: "Aditi Sharma", email: "aditi.sharma@company.com", department: "Engineering", role: "Software Engineer", status: "Active", app_role: "Employee", joined_on: "2026-01-12", phone: "9000000004" },
-  { id: 5, full_name: "Rohan Mehta", email: "rohan.mehta@company.com", department: "Product", role: "Product Manager", status: "Active", app_role: "Employee", joined_on: "2025-11-05", phone: "9000000005" },
-  { id: 6, full_name: "Priya Verma", email: "priya.verma@company.com", department: "Design", role: "UX Designer", status: "On Leave", app_role: "Employee", joined_on: "2025-08-18", phone: "9000000006" },
-  { id: 7, full_name: "Arjun Singh", email: "arjun.singh@company.com", department: "Marketing", role: "Marketing Executive", status: "Active", app_role: "Employee", joined_on: "2026-03-10", phone: "9000000007" },
-  { id: 8, full_name: "Ishita Jain", email: "ishita.jain@company.com", department: "Finance", role: "Financial Analyst", status: "Active", app_role: "Employee", joined_on: "2025-10-20", phone: "9000000008" },
-  { id: 9, full_name: "Dev Malhotra", email: "dev.malhotra@company.com", department: "Engineering", role: "Backend Developer", status: "Active", app_role: "Employee", joined_on: "2026-02-02", phone: "9000000009" },
-  { id: 10, full_name: "Meera Kapoor", email: "meera.kapoor@company.com", department: "Engineering", role: "QA Engineer", status: "Active", app_role: "Employee", joined_on: "2025-12-11", phone: "9000000010" },
-  { id: 11, full_name: "Yash Agarwal", email: "yash.agarwal@company.com", department: "Sales", role: "Sales Associate", status: "Active", app_role: "Employee", joined_on: "2026-04-04", phone: "9000000011" },
-  { id: 12, full_name: "Sana Khan", email: "sana.khan@company.com", department: "Operations", role: "Operations Analyst", status: "Active", app_role: "Employee", joined_on: "2025-07-22", phone: "9000000012" },
-  { id: 13, full_name: "Kabir Rathore", email: "kabir.rathore@company.com", department: "Product", role: "Product Designer", status: "Active", app_role: "Employee", joined_on: "2026-05-16", phone: "9000000013" },
-  { id: 14, full_name: "Ananya Das", email: "ananya.das@company.com", department: "Marketing", role: "Content Strategist", status: "Active", app_role: "Employee", joined_on: "2026-06-03", phone: "9000000014" },
-  { id: 15, full_name: "Rahul Bansal", email: "rahul.bansal@company.com", department: "Engineering", role: "DevOps Engineer", status: "Active", app_role: "Employee", joined_on: "2025-09-01", phone: "9000000015" },
-];
-
-const DEMO_RECORDS = {
-  leaves: [
-    { id: 1, employee_id: 4, leave_type: "Casual Leave", start_date: "2026-11-10", end_date: "2026-11-11", reason: "Family commitment", status: "Pending", reviewed_by: null, review_note: null, created_at: "2026-10-28T09:30:00" },
-    { id: 2, employee_id: 6, leave_type: "Sick Leave", start_date: "2026-10-28", end_date: "2026-10-30", reason: "Not feeling well", status: "Approved", reviewed_by: 2, review_note: "Approved for recovery", created_at: "2026-10-27T11:10:00" },
-    { id: 3, employee_id: 5, leave_type: "Earned Leave", start_date: "2026-11-02", end_date: "2026-11-04", reason: "Personal travel", status: "Pending", reviewed_by: null, review_note: null, created_at: "2026-10-26T12:40:00" },
-  ],
-  credits: [
-    { id: 1, category: "Learning", employee_id: 4, allocated_credits: 100, used_credits: 25, updated_at: "2026-10-28T09:30:00" },
-    { id: 2, category: "Wellness", employee_id: 5, allocated_credits: 75, used_credits: 15, updated_at: "2026-10-25T10:15:00" },
-    { id: 3, category: "Learning", employee_id: 9, allocated_credits: 120, used_credits: 60, updated_at: "2026-10-23T14:00:00" },
-    { id: 4, category: "Travel", employee_id: 11, allocated_credits: 200, used_credits: 40, updated_at: "2026-10-24T13:45:00" },
-    { id: 5, category: "Wellness", employee_id: 12, allocated_credits: 80, used_credits: 10, updated_at: "2026-10-21T08:40:00" },
-  ],
-  announcements: [
-    { id: 1, title: "Welcome to Internal CRM", body: "The new employee workspace is ready for the pilot. Please review your profile and contact HR if anything needs updating.", created_by: 1, published: true, created_at: "2026-10-28T09:00:00" },
-    { id: 2, title: "November Team Town Hall", body: "Our monthly town hall will take place on November 6. Please share agenda suggestions with your manager.", created_by: 2, published: true, created_at: "2026-10-27T13:20:00" },
-    { id: 3, title: "Benefits enrollment reminder", body: "Please review your wellness and learning credit balances before the next monthly review.", created_by: 2, published: true, created_at: "2026-10-25T16:10:00" },
-  ],
-  onboarding: [
-    { id: 1, workflow_type: "onboarding", employee_id: 4, title: "Complete security training", description: "Finish the company security awareness module.", owner_id: 2, due_date: "2026-11-05", status: "Pending", created_at: "2026-10-27T09:00:00" },
-    { id: 2, workflow_type: "onboarding", employee_id: 9, title: "Set up development environment", description: "Verify repository and development access.", owner_id: 1, due_date: "2026-11-03", status: "In Progress", created_at: "2026-10-26T09:00:00" },
-    { id: 3, workflow_type: "onboarding", employee_id: 13, title: "Meet your product team", description: "Schedule introductions with design and engineering.", owner_id: 2, due_date: "2026-11-06", status: "Completed", created_at: "2026-10-25T09:00:00" },
-  ],
-  offboarding: [
-    { id: 1, workflow_type: "offboarding", employee_id: 11, title: "Collect company assets", description: "Confirm laptop and access card return checklist.", owner_id: 2, due_date: "2026-11-12", status: "Pending", created_at: "2026-10-26T10:00:00" },
-  ],
-  audit: [
-    { id: 1, actor_employee_id: 1, action: "employee.created", entity_type: "employee", entity_id: 15, details: { email: "rahul.bansal@company.com" }, created_at: "2026-10-28T10:11:00" },
-    { id: 2, actor_employee_id: 2, action: "leave.applied", entity_type: "leave_request", entity_id: 1, details: { leave_type: "Casual Leave" }, created_at: "2026-10-28T09:30:00" },
-    { id: 3, actor_employee_id: 1, action: "credits.allocated", entity_type: "credit_allocation", entity_id: 5, details: { category: "Wellness" }, created_at: "2026-10-24T12:10:00" },
-  ],
+const INITIAL_RECORDS = {
+  leaves: [],
+  credits: [],
+  announcements: [],
+  onboarding: [],
+  offboarding: [],
+  audit: [],
 };
 
 const INITIAL_FORMS = {
@@ -132,13 +90,13 @@ export default function Home() {
   const [active, setActive] = useState("Dashboard");
   const [token, setToken] = useState("");
   const [user, setUser] = useState(null);
-  const [employees, setEmployees] = useState(DEMO_EMPLOYEES);
-  const [records, setRecords] = useState(DEMO_RECORDS);
-  const [metrics, setMetrics] = useState({ total_employees: 15, active_employees: 14, on_leave_today: 1, departments: 8 });
+  const [employees, setEmployees] = useState([]);
+  const [records, setRecords] = useState(INITIAL_RECORDS);
+  const [metrics, setMetrics] = useState({ total_employees: 0, active_employees: 0, on_leave_today: 0, departments: 0 });
   const [search, setSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("All departments");
   const [statusFilter, setStatusFilter] = useState("All statuses");
-  const [connection, setConnection] = useState("Demo preview");
+  const [connection, setConnection] = useState("Live workspace");
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const [busy, setBusy] = useState(false);
@@ -148,7 +106,6 @@ export default function Home() {
   const [form, setForm] = useState(INITIAL_FORMS.employee);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [googleReady, setGoogleReady] = useState(false);
-  const [demoMode, setDemoMode] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
@@ -156,7 +113,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const googleInitialized = useRef(false);
 
-  const isWorkspace = Boolean(token || demoMode);
+  const isWorkspace = Boolean(token);
   const isAdminOrHr = ["Admin", "HR"].includes(user?.app_role);
   const isAdmin = user?.app_role === "Admin";
   const pendingLeaves = records.leaves.filter((item) => item.status === "Pending");
@@ -211,11 +168,11 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!token && !demoMode) return;
+    if (!token) return;
     loadSection(active);
     // Search and view filters stay client-side so typing is instant.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, active, demoMode]);
+  }, [token, active]);
 
   useEffect(() => {
     if (!toast) return;
@@ -226,6 +183,28 @@ export default function Home() {
   useEffect(() => {
     try { localStorage.setItem("crm_theme", darkMode ? "dark" : "light"); } catch {}
   }, [darkMode]);
+
+  // Keep logged-in user state in sync whenever employee directory updates
+  useEffect(() => {
+    if (!user || !employees.length) return;
+    const current = employees.find((e) => e.id === user.id || (user.email && e.email?.toLowerCase() === user.email.toLowerCase()));
+    if (current) {
+      if (
+        current.app_role !== user.app_role ||
+        current.full_name !== user.full_name ||
+        current.department !== user.department ||
+        current.role !== user.role
+      ) {
+        setUser((prev) => ({
+          ...prev,
+          full_name: current.full_name,
+          department: current.department,
+          role: current.role,
+          app_role: current.app_role,
+        }));
+      }
+    }
+  }, [employees, user]);
 
   useEffect(() => {
     function onKeyDown(event) {
@@ -245,27 +224,7 @@ export default function Home() {
     }
   }
 
-  const setDemoSection = useCallback((section) => {
-    if (section === "Dashboard") {
-      setMetrics({
-        total_employees: employees.filter((e) => e.status !== "Inactive").length,
-        active_employees: employees.filter((e) => e.status === "Active").length,
-        on_leave_today: employees.filter((e) => e.status === "On Leave").length,
-        departments: new Set(employees.filter((e) => e.status !== "Inactive").map((e) => e.department)).size,
-      });
-      return;
-    }
-    if (section === "Reports & Export") return;
-    if (section === "Settings") return;
-    if (section === "Admin Tools" && user?.app_role !== "Admin") return;
-  }, [employees, user]);
-
   async function loadSection(section) {
-    if (demoMode && !token) {
-      setConnection("Demo workspace · local changes only");
-      setDemoSection(section);
-      return;
-    }
     if (!token) return;
     setLoading(true); setError("");
     try {
@@ -284,7 +243,7 @@ export default function Home() {
           offboarding: results[5].status === "fulfilled" ? results[5].value : old.offboarding,
           credits: results[6].status === "fulfilled" ? results[6].value : old.credits,
         }));
-      } else if (section === "Employees" || section === "Team Lookup" || section === "Reports & Export") {
+      } else if (section === "Employees" || section === "Reports & Export") {
         setEmployees(await api("/employees", token));
         if (section === "Reports & Export") {
           const [leaveResult, creditResult] = await Promise.allSettled([api("/leaves", token), api("/credits", token)]);
@@ -331,6 +290,15 @@ export default function Home() {
                         throw new Error("Google credential not received.");
                     }
 
+                    // Decode the Google JWT to read the email before sending to backend.
+                    const tokenPayload = JSON.parse(atob(response.credential.split(".")[1]));
+                    const signinEmail = (tokenPayload.email || "").toLowerCase();
+                    if (!signinEmail.endsWith("@quickads.ai")) {
+                        setError("Access is restricted to @quickads.ai accounts only.");
+                        notify("Access is restricted to @quickads.ai accounts only.", "error");
+                        return;
+                    }
+
                     const result = await fetch(`${API}/auth/google`, {
                         method: "POST",
                         headers: {
@@ -351,12 +319,11 @@ export default function Home() {
 
                     setToken(data.access_token);
                     setUser(data.user);
-                    setDemoMode(false);
 
                     notify("Login successful!", "success");
 
                 } catch (error) {
-                    console.error("Google Login:", error);
+                    setError(error.message || "Login failed");
                     notify(error.message, "error");
                 } finally {
                     setBusy(false);
@@ -376,28 +343,20 @@ export default function Home() {
         });
 
     } catch (error) {
-        console.error("Google initialization error:", error);
         setBusy(false);
+        setError("Google Sign-In initialization failed.");
         notify("Google Sign-In initialization failed.", "error");
     }
 }
-  function enterDemo() {
-    setToken(""); setUser({ id: 1, full_name: "Kuber Singh", email: "admin@company.com", app_role: "Admin", department: "Operations" });
-    setEmployees(DEMO_EMPLOYEES.map((employee) => ({ ...employee })));
-    setRecords(JSON.parse(JSON.stringify(DEMO_RECORDS)));
-    setMetrics({ total_employees: 15, active_employees: 14, on_leave_today: 1, departments: 8 });
-    setDemoMode(true); setActive("Dashboard"); setError(""); setConnection("Demo workspace · local changes only");
-    notify("Demo workspace opened. Changes stay in this browser session.");
-  }
 
   function logout() {
-    localStorage.removeItem("crm_token"); setToken(""); setUser(null); setDemoMode(false); setActive("Dashboard");
+    localStorage.removeItem("crm_token"); setToken(""); setUser(null); setActive("Dashboard");
     setError(""); setConnection("Signed out"); setNotificationsOpen(false);
   }
 
   function openForm() {
     setError(""); setEditingEmployee(null);
-    if (active === "Employees" || active === "Team Lookup") setForm({ ...INITIAL_FORMS.employee });
+    if (active === "Employees") setForm({ ...INITIAL_FORMS.employee });
     else if (active === "Leave Management") setForm({ ...INITIAL_FORMS.leave });
     else if (active === "Credits & Usage") setForm({ ...INITIAL_FORMS.credit });
     else if (active === "Announcements") setForm({ ...INITIAL_FORMS.announcement });
@@ -413,86 +372,85 @@ export default function Home() {
 
   async function submitForm(event) {
     event.preventDefault();
-    if (!token && !demoMode) { setError("Sign in with a company Google account or open the demo workspace first."); return; }
+    if (!token) { setError("Please sign in with your Quickads Google account."); return; }
     setBusy(true); setError("");
     try {
       const body = { ...form };
-      if (active === "Employees" || active === "Team Lookup") {
+      if (active === "Employees") {
         if (editingEmployee) {
-          if (demoMode) setEmployees((items) => items.map((item) => item.id === editingEmployee.id ? { ...item, ...body } : item));
-          else {
-            const { email, joined_on, ...editable } = body;
-            if (!isAdmin) delete editable.app_role;
-            await api(`/employees/${editingEmployee.id}`, token, { method: "PATCH", body: JSON.stringify(editable) });
-          }
+          const { email, joined_on, ...editable } = body;
+          if (!isAdmin) delete editable.app_role;
+          const updated = await api(`/employees/${editingEmployee.id}`, token, { method: "PATCH", body: JSON.stringify(editable) });
           notify("Employee profile updated.");
+          if (user && (editingEmployee.id === user.id || editingEmployee.email?.toLowerCase() === user.email?.toLowerCase())) {
+            setUser((prev) => ({
+              ...prev,
+              full_name: updated.full_name,
+              department: updated.department,
+              role: updated.role,
+              app_role: updated.app_role,
+            }));
+            await loadMe(token);
+          }
         } else {
           const employeeBody = { ...body, app_role: isAdmin ? body.app_role : "Employee", status: "Active", joined_on: new Date().toISOString().slice(0, 10) };
-          if (demoMode) {
-            const created = { ...employeeBody, id: Math.max(0, ...employees.map((item) => item.id)) + 1, status: "Active", created_at: new Date().toISOString() };
-            setEmployees((items) => [created, ...items]);
-          } else await api("/employees", token, { method: "POST", body: JSON.stringify(employeeBody) });
+          await api("/employees", token, { method: "POST", body: JSON.stringify(employeeBody) });
           notify("Employee added to the directory.");
         }
       } else if (active === "Leave Management") {
         const leaveBody = { ...body };
-        if (demoMode) setRecords((items) => ({ ...items, leaves: [{ ...leaveBody, id: Math.max(0, ...items.leaves.map((item) => item.id)) + 1, employee_id: user.id, status: "Pending", reviewed_by: null, review_note: null, created_at: new Date().toISOString() }, ...items.leaves] }));
-        else await api("/leaves", token, { method: "POST", body: JSON.stringify(leaveBody) });
+        await api("/leaves", token, { method: "POST", body: JSON.stringify(leaveBody) });
         notify("Leave request submitted.");
       } else if (active === "Credits & Usage") {
         const creditBody = { ...body, employee_id: Number(body.employee_id), allocated_credits: Number(body.allocated_credits), used_credits: Number(body.used_credits) };
-        if (demoMode) setRecords((items) => ({ ...items, credits: [{ ...creditBody, id: Math.max(0, ...items.credits.map((item) => item.id)) + 1, updated_at: new Date().toISOString() }, ...items.credits] }));
-        else await api("/credits", token, { method: "POST", body: JSON.stringify(creditBody) });
+        await api("/credits", token, { method: "POST", body: JSON.stringify(creditBody) });
         notify("Credit allocation saved.");
       } else if (active === "Announcements") {
-        if (demoMode) setRecords((items) => ({ ...items, announcements: [{ ...body, id: Math.max(0, ...items.announcements.map((item) => item.id)) + 1, created_by: user.id, created_at: new Date().toISOString() }, ...items.announcements] }));
-        else await api("/announcements", token, { method: "POST", body: JSON.stringify(body) });
+        await api("/announcements", token, { method: "POST", body: JSON.stringify(body) });
         notify("Announcement published.");
       } else {
         const taskBody = { ...body, employee_id: Number(body.employee_id), owner_id: body.owner_id ? Number(body.owner_id) : null, due_date: body.due_date || null, workflow_type: active === "Offboarding" ? "offboarding" : "onboarding" };
-        const key = active === "Offboarding" ? "offboarding" : "onboarding";
-        if (demoMode) setRecords((items) => ({ ...items, [key]: [{ ...taskBody, id: Math.max(0, ...items[key].map((item) => item.id)) + 1, created_at: new Date().toISOString() }, ...items[key]] }));
-        else await api("/workflows", token, { method: "POST", body: JSON.stringify(taskBody) });
+        await api("/workflows", token, { method: "POST", body: JSON.stringify(taskBody) });
         notify("Workflow task created.");
       }
       setShowForm(false); setEditingEmployee(null);
-      if (demoMode) setDemoSection(active); else await loadSection(active);
+      await loadSection(active);
     } catch (exception) { setError(exception.message || "Could not save changes."); }
     finally { setBusy(false); }
   }
 
   async function reviewLeave(id, newStatus) {
     try {
-      if (demoMode) setRecords((items) => ({ ...items, leaves: items.leaves.map((item) => item.id === id ? { ...item, status: newStatus, reviewed_by: user.id } : item) }));
-      else await api(`/leaves/${id}/review`, token, { method: "PATCH", body: JSON.stringify({ status: newStatus }) });
-      notify(`Leave request ${newStatus.toLowerCase()}.`); if (!demoMode) await loadSection(active);
+      await api(`/leaves/${id}/review`, token, { method: "PATCH", body: JSON.stringify({ status: newStatus }) });
+      notify(`Leave request ${newStatus.toLowerCase()}.`);
+      await loadSection(active);
     } catch (exception) { setError(exception.message); }
   }
 
   async function taskStatus(id, newStatus) {
     const key = active === "Offboarding" ? "offboarding" : "onboarding";
     try {
-      if (demoMode) setRecords((items) => ({ ...items, [key]: items[key].map((item) => item.id === id ? { ...item, status: newStatus } : item) }));
-      else await api(`/workflows/tasks/${id}`, token, { method: "PATCH", body: JSON.stringify({ status: newStatus }) });
-      if (!demoMode) await loadSection(active); notify(`Task marked ${newStatus.toLowerCase()}.`);
+      await api(`/workflows/tasks/${id}`, token, { method: "PATCH", body: JSON.stringify({ status: newStatus }) });
+      await loadSection(active);
+      notify(`Task marked ${newStatus.toLowerCase()}.`);
     } catch (exception) { setError(exception.message); }
   }
 
   async function deactivateEmployee(employee) {
     if (!window.confirm(`Deactivate ${employee.full_name}? Their historical records will be retained.`)) return;
     try {
-      if (demoMode) setEmployees((items) => items.map((item) => item.id === employee.id ? { ...item, status: "Inactive" } : item));
-      else await api(`/employees/${employee.id}`, token, { method: "DELETE" });
-      notify(`${employee.full_name} was deactivated.`); if (!demoMode) await loadSection(active);
+      await api(`/employees/${employee.id}`, token, { method: "DELETE" });
+      notify(`${employee.full_name} was deactivated.`);
+      await loadSection(active);
     } catch (exception) { setError(exception.message); }
   }
 
   async function deleteAnnouncement(announcement) {
     if (!window.confirm(`Delete the announcement “${announcement.title}”?`)) return;
     try {
-      if (demoMode) setRecords((items) => ({ ...items, announcements: items.announcements.filter((item) => item.id !== announcement.id) }));
-      else await api(`/announcements/${announcement.id}`, token, { method: "DELETE" });
-      notify("Announcement deleted."); if (!demoMode) await loadSection(active);
+      await api(`/announcements/${announcement.id}`, token, { method: "DELETE" });
+      notify("Announcement deleted.");
+      await loadSection(active);
     } catch (exception) { setError(exception.message); }
   }
 
@@ -508,8 +466,7 @@ export default function Home() {
   const heading = active === "Dashboard" ? `Good evening${user?.full_name ? `, ${user.full_name.split(" ")[0]}` : ""}` : active;
   const subtitle = {
     Dashboard: "Your people, workflows, and important updates — all in one calm workspace.",
-    Employees: "A clear view of the people behind your business.",
-    "Team Lookup": "Find the right teammate, department, or role in seconds.",
+    Employees: "Your complete team directory and employee management workspace.",
     "Leave Management": "Keep time off transparent, organized, and easy to review.",
     "Credits & Usage": "Track learning, wellness, and other employee benefits.",
     Announcements: "One place for company news, reminders, and shared context.",
@@ -552,9 +509,6 @@ export default function Home() {
               <div className="login-card"><div className="login-icon"><LockKeyhole size={21} /></div><span className="eyebrow">WELCOME TO INTERNAL CRM</span><h2>Pick up where<br />your team left off.</h2><p>Sign in with your company Google account to continue to your secure workspace.</p>
                 {error && <div className="error-banner"><span>{error}</span><button onClick={() => setError("")} aria-label="Dismiss error"><X size={14} /></button></div>}
                 <button className="google-button" disabled={!googleReady || busy} onClick={signIn}><span className="google-g">G</span>{busy ? "Connecting your workspace…" : "Continue with Google"}<ArrowRight size={16} /></button>
-                {!GOOGLE_CLIENT_ID && <div className="setup-hint"><CircleHelp size={14} /> Google OAuth isn't configured yet. You can still explore the live demo below.</div>}
-                <div className="login-divider"><span /> OR TRY IT OUT <span /></div>
-                <button className="demo-button" onClick={enterDemo}><span className="demo-button-icon"><Rocket size={16} /></span><span><strong>Explore demo workspace</strong><small>15 sample people · interactive preview</small></span><ArrowUpRight size={17} /></button>
                 <div className="login-security"><ShieldCheck size={15} /><span>Role-based access</span><i /> <span>Protected workspace</span></div>
               </div>
               <div className="trust-line"><span>✦</span> Built for people-first operations <span>✦</span></div>
@@ -565,41 +519,40 @@ export default function Home() {
         <>
           <aside className={`sidebar ${mobile ? "sidebar-open" : ""}`}>
             <div className="brand"><span className="brand-mark"><Activity size={19} /></span><span className="brand-text">internal<span className="brand-light">CRM</span><sup>PRO</sup></span><button className="close-nav" onClick={() => setMobile(false)} aria-label="Close sidebar"><X size={18} /></button></div>
-            <div className="workspace-switcher"><div className="workspace-emblem"><Building2 size={16} /></div><div className="workspace-switcher-copy"><strong>Acme Workspace</strong><small>{demoMode ? "Demo environment" : "Company workspace"}</small></div><ChevronDown size={14} /></div>
+            <div className="workspace-switcher"><div className="workspace-emblem"><Building2 size={16} /></div><div className="workspace-switcher-copy"><strong>Quickads Workspace</strong><small>Company workspace</small></div><ChevronDown size={14} /></div>
             <div className="workspace-label">WORKSPACE</div>
             <nav className="sidebar-nav">{NAV.slice(0, 8).map(([label, Icon, helper]) => <button key={label} onClick={() => navigate(label)} className={`nav-item ${active === label ? "selected" : ""}`} title={collapsed ? label : undefined}><Icon size={18} /><span className="nav-copy">{label}</span>{label === "Leave Management" && pendingLeaves.length > 0 && <span className="nav-count">{pendingLeaves.length}</span>}</button>)}
               <div className="nav-divider" /><div className="workspace-label secondary-label">ANALYTICS & CONTROL</div>
               {NAV.slice(8).map(([label, Icon]) => <button key={label} onClick={() => navigate(label)} className={`nav-item ${active === label ? "selected" : ""}`} title={collapsed ? label : undefined}><Icon size={18} /><span className="nav-copy">{label}</span>{label === "Admin Tools" && isAdmin && <span className="admin-pip" />}</button>)}
             </nav>
             <div className="sidebar-bottom"><div className="sidebar-promo"><div className="promo-orb"><Zap size={16} /></div><strong>Your team, in sync.</strong><p>Small actions create great employee experiences.</p><button onClick={() => navigate("Reports & Export")}>Explore insights <ArrowUpRight size={13} /></button></div>
-              <div className="profile-mini"><div className="avatar admin-avatar">{initials(user?.full_name)}</div><div className="profile-copy"><strong>{user?.full_name || "Guest"}</strong><small>{demoMode ? "Demo administrator" : user?.app_role || "Employee"}</small></div><button className="profile-menu" onClick={logout} title="Sign out / exit demo"><LogOut size={15} /></button></div>
+              <div className="profile-mini"><div className="avatar admin-avatar">{initials(user?.full_name)}</div><div className="profile-copy"><strong>{user?.full_name || "Guest"}</strong><small>{user?.role && user?.role !== user?.app_role ? `${user.role} · ${user.app_role}` : (user?.app_role || user?.role || "Employee")}</small></div><button className="profile-menu" onClick={logout} title="Sign out"><LogOut size={15} /></button></div>
               <button className="collapse-button" onClick={() => setCollapsed((value) => !value)}><ChevronDown size={14} /><span>{collapsed ? "Expand sidebar" : "Collapse sidebar"}</span></button>
             </div>
           </aside>
 
           <section className="main-area"><header className="topbar"><button className="menu-button" onClick={() => setMobile(true)} aria-label="Open navigation"><Menu size={20} /></button><button className="collapse-top" onClick={() => setCollapsed((value) => !value)} aria-label="Toggle sidebar"><Layers3 size={17} /></button>
-              <label className="global-search"><Search size={17} /><input placeholder="Search people, teams, roles…" value={search} onChange={(event) => { setSearch(event.target.value); if (!['Employees', 'Team Lookup'].includes(active)) setActive('Employees'); }} /><kbd>Ctrl K</kbd></label>
-              <div className="top-actions"><div className={`connection-pill ${connection.includes("Connected") ? "connected" : ""}`} title={connection}><span />{demoMode ? "Demo mode" : token ? "Live workspace" : "Preview"}</div>
+              <label className="global-search"><Search size={17} /><input placeholder="Search people, teams, roles…" value={search} onChange={(event) => { setSearch(event.target.value); if (active !== 'Employees') setActive('Employees'); }} /><kbd>Ctrl K</kbd></label>
+              <div className="top-actions"><div className={`connection-pill ${connection.includes("Connected") ? "connected" : ""}`} title={connection}><span />{token ? "Live workspace" : "Workspace"}</div>
                 <button className="top-icon-button" onClick={() => setDarkMode((value) => !value)} title={darkMode ? "Switch to light theme" : "Switch to dark theme"}>{darkMode ? <Sun size={18} /> : <Moon size={18} />}</button>
                 <div className="notification-wrap"><button className={`top-icon-button ${notificationsOpen ? "is-open" : ""}`} onClick={() => setNotificationsOpen((value) => !value)} title="Notifications"><Bell size={18} />{pendingLeaves.length > 0 && <i />}</button>{notificationsOpen && <div className="notification-popover"><div className="popover-title"><div><strong>Notifications</strong><small>{pendingLeaves.length + announcements.length} workspace updates</small></div><button onClick={() => setNotificationsOpen(false)}><X size={15} /></button></div>{pendingLeaves.slice(0, 3).map((leave) => <button className="notification-item" key={`leave-${leave.id}`} onClick={() => navigate("Leave Management")}><span className="notification-symbol amber-symbol"><CalendarDays size={15} /></span><span><strong>Leave request waiting</strong><small>{employees.find((e) => e.id === leave.employee_id)?.full_name || "An employee"} · {leave.leave_type}</small></span><ArrowUpRight size={14} /></button>)}{announcements.slice(0, 2).map((announcement) => <button className="notification-item" key={`announcement-${announcement.id}`} onClick={() => navigate("Announcements")}><span className="notification-symbol green-symbol"><Megaphone size={15} /></span><span><strong>{announcement.title}</strong><small>Company announcement</small></span><ArrowUpRight size={14} /></button>)}{pendingLeaves.length + announcements.length === 0 && <div className="empty-state small-empty">You're all caught up.</div>}</div>}</div>
-                <div className="top-user"><div className="avatar admin-avatar">{initials(user?.full_name)}</div><div className="top-user-copy"><strong>{user?.full_name}</strong><small>{user?.app_role}</small></div><ChevronDown size={14} /></div>
+                <div className="top-user"><div className="avatar admin-avatar">{initials(user?.full_name)}</div><div className="top-user-copy"><strong>{user?.full_name}</strong><small>{user?.role && user?.role !== user?.app_role ? `${user.role} · ${user.app_role}` : (user?.app_role || user?.role || "Employee")}</small></div></div>
               </div></header>
 
-            <div className="page-content"><div className="page-heading"><div><div className="eyebrow">INTERNAL OPERATIONS <span className="eyebrow-separator">/</span> {active === "Dashboard" ? "COMMAND CENTER" : active.toUpperCase()}</div><h1>{heading} <span className="heading-spark">{active === "Dashboard" ? "✳" : ""}</span></h1><p>{subtitle}</p></div><div className="heading-actions">{demoMode && <span className="demo-mode-pill"><span /> DEMO DATA</span>}{token && <button className="secondary-button" onClick={() => loadSection(active)} disabled={loading}><RefreshCw size={15} className={loading ? "spin" : ""} /> Refresh</button>}{isAdminOrHr && ["Employees", "Team Lookup", "Credits & Usage", "Announcements", "Onboarding", "Offboarding"].includes(active) && <button className="primary-button" onClick={openForm}><Plus size={16} /> {active === "Credits & Usage" ? "Allocate credits" : active === "Announcements" ? "New announcement" : active === "Onboarding" || active === "Offboarding" ? "Add task" : "Add employee"}</button>}{active === "Leave Management" && <button className="primary-button" onClick={openForm}><Plus size={16} /> Apply for leave</button>}{["Employees", "Team Lookup", "Leave Management", "Credits & Usage", "Reports & Export", "Admin Tools"].includes(active) && <button className="secondary-button export-button" onClick={openExport}><Download size={15} /> Export CSV</button>}</div></div>
+            <div className="page-content"><div className="page-heading"><div><div className="eyebrow">INTERNAL OPERATIONS <span className="eyebrow-separator">/</span> {active === "Dashboard" ? "COMMAND CENTER" : active.toUpperCase()}</div><h1>{heading} <span className="heading-spark">{active === "Dashboard" ? "✳" : ""}</span></h1><p>{subtitle}</p></div><div className="heading-actions">{token && <button className="secondary-button" onClick={() => loadSection(active)} disabled={loading}><RefreshCw size={15} className={loading ? "spin" : ""} /> Refresh</button>}{isAdminOrHr && ["Employees", "Credits & Usage", "Announcements", "Onboarding", "Offboarding"].includes(active) && <button className="primary-button" onClick={openForm}><Plus size={16} /> {active === "Credits & Usage" ? "Allocate credits" : active === "Announcements" ? "New announcement" : active === "Onboarding" || active === "Offboarding" ? "Add task" : "Add employee"}</button>}{active === "Leave Management" && <button className="primary-button" onClick={openForm}><Plus size={16} /> Apply for leave</button>}{["Employees", "Leave Management", "Credits & Usage", "Reports & Export", "Admin Tools"].includes(active) && <button className="secondary-button export-button" onClick={openExport}><Download size={15} /> Export CSV</button>}</div></div>
 
-              {demoMode && <div className="demo-banner"><div className="demo-banner-icon"><Sparkles size={17} /></div><div><strong>You're exploring the interactive demo</strong><span>Try the workflows and UI. Demo changes are local and reset when you exit.</span></div><button onClick={logout}>Exit demo <ArrowRight size={14} /></button></div>}
               {error && <div className="error-banner"><span>{error}</span><button onClick={() => setError("")} aria-label="Dismiss error"><X size={15} /></button></div>}
 
               {active === "Dashboard" ? <DashboardView employees={employees} metrics={metrics} records={records} navigate={navigate} loading={loading} user={user} /> : null}
-              {active === "Employees" || active === "Team Lookup" ? <EmployeeView employees={filteredEmployees} departments={departments} departmentFilter={departmentFilter} setDepartmentFilter={setDepartmentFilter} clearSearch={() => setSearch("")} statusFilter={statusFilter} setStatusFilter={setStatusFilter} onAdd={openForm} onEdit={editEmployee} onDeactivate={deactivateEmployee} canManage={isAdminOrHr} isAdmin={isAdmin} teamMode={active === "Team Lookup"} /> : null}
+              {active === "Employees" ? <EmployeeView employees={filteredEmployees} departments={departments} departmentFilter={departmentFilter} setDepartmentFilter={setDepartmentFilter} clearSearch={() => setSearch("")} statusFilter={statusFilter} setStatusFilter={setStatusFilter} onAdd={openForm} onEdit={editEmployee} onDeactivate={deactivateEmployee} canManage={isAdminOrHr} isAdmin={isAdmin} /> : null}
               {active === "Leave Management" ? <LeaveView data={records.leaves} employees={employees} user={user} onReview={reviewLeave} onAdd={openForm} /> : null}
               {active === "Credits & Usage" ? <CreditsView data={records.credits} employees={employees} onAdd={openForm} canManage={isAdminOrHr} /> : null}
               {active === "Announcements" ? <AnnouncementsView data={records.announcements} onAdd={openForm} onDelete={deleteAnnouncement} canManage={isAdminOrHr} /> : null}
               {active === "Onboarding" || active === "Offboarding" ? <WorkflowView data={records[active === "Offboarding" ? "offboarding" : "onboarding"]} employees={employees} onAdd={openForm} onStatus={taskStatus} canManage={isAdminOrHr} type={active} /> : null}
               {active === "Reports & Export" ? <ReportsView employees={employees} records={records} onExport={openExport} navigate={navigate} /> : null}
               {active === "Admin Tools" ? <AuditView data={records.audit} role={user?.app_role} employees={employees} /> : null}
-              {active === "Settings" ? <SettingsView user={user} demoMode={demoMode} darkMode={darkMode} setDarkMode={setDarkMode} connection={connection} onLogout={logout} /> : null}
-              <footer className="app-footer"><span>© 2026 <strong>Internal CRM Pro</strong> <i /> Built for better workdays.</span><span className="footer-status"><span />{demoMode ? "Demo session" : "Secure session active"}</span></footer>
+              {active === "Settings" ? <SettingsView user={user} darkMode={darkMode} setDarkMode={setDarkMode} connection={connection} onLogout={logout} /> : null}
+              <footer className="app-footer"><span>© 2026 <strong>Internal CRM Pro</strong> <i /> Built for better workdays.</span><span className="footer-status"><span />Secure session active</span></footer>
             </div>
           </section>
         </>
@@ -648,9 +601,158 @@ function StatCard({ title, value, sub, Icon, tone, trend }) {
   return <article className="stat-card"><div className={`stat-icon ${tone}`}><Icon size={19} /></div><div className="stat-copy"><span>{title}</span><strong>{value}</strong><small>{sub}</small></div><div className={`stat-trend trend-${tone}`}><span className="trend-tick"><TrendingUp size={12} /></span>{trend}</div></article>;
 }
 
-function EmployeeView({ employees, departments, departmentFilter, setDepartmentFilter, clearSearch, statusFilter, setStatusFilter, onAdd, onEdit, onDeactivate, canManage, isAdmin, teamMode }) {
-  return <section className="panel directory-panel"><div className="directory-toolbar"><div><span className="panel-kicker">PEOPLE DIRECTORY</span><h2>{teamMode ? "Find your people" : "Everyone on the team"}</h2><p>{employees.length} visible profiles · Search by name, role, email, or department.</p></div><div className="directory-controls"><label className="filter-select"><Filter size={14} /><select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)} aria-label="Filter by department">{departments.map((department) => <option key={department}>{department}</option>)}</select></label><label className="filter-select"><SlidersHorizontal size={14} /><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter by status">{["All statuses", "Active", "On Leave", "Inactive"].map((status) => <option key={status}>{status}</option>)}</select></label>{canManage && <button className="primary-button" onClick={onAdd}><Plus size={15} /> Add employee</button>}</div></div>
-    <div className="table-meta"><span><span className="table-live-dot" /> Directory synced</span><span>Showing <strong>{employees.length}</strong> records</span></div><div className="table-wrap"><table className="pro-table"><thead><tr><th>TEAM MEMBER</th><th>DEPARTMENT</th><th>JOB TITLE</th><th>JOINED</th><th>STATUS</th><th>ACCESS ROLE</th>{canManage && <th className="align-right">ACTIONS</th>}</tr></thead><tbody>{employees.map((employee, index) => <tr key={employee.id}><td><div className="table-person"><div className={`avatar employee-avatar avatar-tone-${index % 6}`}>{initials(employee.full_name)}</div><div><strong>{employee.full_name}</strong><span>{employee.email}</span></div></div></td><td><span className="dept-chip">{employee.department}</span></td><td><span className="job-title">{employee.role}</span></td><td>{dateLabel(employee.joined_on, { year: true })}</td><td><StatusBadge status={employee.status} /></td><td><span className={`role-pill ${employee.app_role === "Admin" ? "role-admin" : employee.app_role === "HR" ? "role-hr" : ""}`}>{employee.app_role || "Employee"}</span></td>{canManage && <td><div className="row-action-group"><button className="table-action" onClick={() => onEdit(employee)} title="Edit employee"><Pencil size={14} /></button>{isAdmin && employee.status !== "Inactive" && <button className="table-action danger-action" onClick={() => onDeactivate(employee)} title="Deactivate employee"><LogOut size={14} /></button>}</div></td>}</tr>)}</tbody></table>{employees.length === 0 && <EmptyState title="No people found" message="Try changing the search term or filters." actionLabel="Clear filters" onAction={() => { setDepartmentFilter("All departments"); setStatusFilter("All statuses"); clearSearch(); }} />}</div><div className="table-footer"><span>Showing {employees.length} people <span className="footer-dot">·</span> Personal information is role-restricted</span><span className="table-foot-secure"><ShieldCheck size={13} /> Secure directory</span></div></section>;
+function EmployeeView({ employees, departments, departmentFilter, setDepartmentFilter, clearSearch, statusFilter, setStatusFilter, onAdd, onEdit, onDeactivate, canManage, isAdmin }) {
+  const [viewMode, setViewMode] = useState("table");
+
+  return (
+    <section className="panel directory-panel">
+      <div className="directory-toolbar">
+        <div>
+          <span className="panel-kicker">PEOPLE DIRECTORY</span>
+          <h2>Team Members & Directory</h2>
+          <p>{employees.length} visible profiles · Search by name, role, email, or department.</p>
+        </div>
+        <div className="directory-controls">
+          <div className="view-toggle">
+            <button
+              type="button"
+              className={`view-toggle-btn ${viewMode === "table" ? "active" : ""}`}
+              onClick={() => setViewMode("table")}
+              title="Table view"
+            >
+              <LayoutList size={14} />
+              <span>Table</span>
+            </button>
+            <button
+              type="button"
+              className={`view-toggle-btn ${viewMode === "grid" ? "active" : ""}`}
+              onClick={() => setViewMode("grid")}
+              title="Cards / Grid view"
+            >
+              <LayoutGrid size={14} />
+              <span>Cards</span>
+            </button>
+          </div>
+          <label className="filter-select">
+            <Filter size={14} />
+            <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)} aria-label="Filter by department">
+              {departments.map((department) => <option key={department}>{department}</option>)}
+            </select>
+          </label>
+          <label className="filter-select">
+            <SlidersHorizontal size={14} />
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter by status">
+              {["All statuses", "Active", "On Leave", "Inactive"].map((status) => <option key={status}>{status}</option>)}
+            </select>
+          </label>
+          {canManage && <button className="primary-button" onClick={onAdd}><Plus size={15} /> Add employee</button>}
+        </div>
+      </div>
+
+      <div className="table-meta">
+        <span><span className="table-live-dot" /> Directory synced</span>
+        <span>Showing <strong>{employees.length}</strong> {viewMode === "table" ? "records" : "profiles"}</span>
+      </div>
+
+      {viewMode === "table" ? (
+        <div className="table-wrap">
+          <table className="pro-table">
+            <thead>
+              <tr>
+                <th>TEAM MEMBER</th>
+                <th>DEPARTMENT</th>
+                <th>JOB TITLE</th>
+                <th>JOINED</th>
+                <th>STATUS</th>
+                <th>ACCESS ROLE</th>
+                {canManage && <th className="align-right">ACTIONS</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {employees.map((employee, index) => (
+                <tr key={employee.id}>
+                  <td>
+                    <div className="table-person">
+                      <div className={`avatar employee-avatar avatar-tone-${index % 6}`}>{initials(employee.full_name)}</div>
+                      <div>
+                        <strong>{employee.full_name}</strong>
+                        <span>{employee.email}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span className="dept-chip">{employee.department}</span></td>
+                  <td><span className="job-title">{employee.role}</span></td>
+                  <td>{dateLabel(employee.joined_on, { year: true })}</td>
+                  <td><StatusBadge status={employee.status} /></td>
+                  <td><span className={`role-pill ${employee.app_role === "Admin" ? "role-admin" : employee.app_role === "HR" ? "role-hr" : ""}`}>{employee.app_role || "Employee"}</span></td>
+                  {canManage && (
+                    <td>
+                      <div className="row-action-group">
+                        <button className="table-action" onClick={() => onEdit(employee)} title="Edit employee"><Pencil size={14} /></button>
+                        {isAdmin && employee.status !== "Inactive" && <button className="table-action danger-action" onClick={() => onDeactivate(employee)} title="Deactivate employee"><LogOut size={14} /></button>}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {employees.length === 0 && <EmptyState title="No people found" message="Try changing the search term or filters." actionLabel="Clear filters" onAction={() => { setDepartmentFilter("All departments"); setStatusFilter("All statuses"); clearSearch(); }} />}
+        </div>
+      ) : (
+        <div className="employee-cards-grid">
+          {employees.map((employee, index) => (
+            <div key={employee.id} className="employee-card">
+              <div className="employee-card-top">
+                <div className="employee-card-person">
+                  <div className={`avatar employee-avatar avatar-tone-${index % 6}`}>{initials(employee.full_name)}</div>
+                  <div>
+                    <strong>{employee.full_name}</strong>
+                    <span>{employee.role}</span>
+                  </div>
+                </div>
+                <StatusBadge status={employee.status} />
+              </div>
+
+              <div className="employee-card-meta">
+                <span className="dept-chip">{employee.department}</span>
+                <span className={`role-pill ${employee.app_role === "Admin" ? "role-admin" : employee.app_role === "HR" ? "role-hr" : ""}`}>{employee.app_role || "Employee"}</span>
+              </div>
+
+              <div className="employee-card-contact">
+                <a href={`mailto:${employee.email}`} className="employee-contact-link" title={`Email ${employee.full_name}`}>
+                  <Mail size={13} />
+                  <span>{employee.email}</span>
+                </a>
+                {employee.phone && (
+                  <span className="employee-contact-link">
+                    <Phone size={13} />
+                    <span>{employee.phone}</span>
+                  </span>
+                )}
+              </div>
+
+              <div className="employee-card-bottom">
+                <span className="employee-card-joined">Joined {dateLabel(employee.joined_on, { year: true })}</span>
+                {canManage && (
+                  <div className="row-action-group">
+                    <button className="table-action" onClick={() => onEdit(employee)} title="Edit employee"><Pencil size={14} /></button>
+                    {isAdmin && employee.status !== "Inactive" && <button className="table-action danger-action" onClick={() => onDeactivate(employee)} title="Deactivate employee"><LogOut size={14} /></button>}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+          {employees.length === 0 && <EmptyState title="No people found" message="Try changing the search term or filters." actionLabel="Clear filters" onAction={() => { setDepartmentFilter("All departments"); setStatusFilter("All statuses"); clearSearch(); }} />}
+        </div>
+      )}
+
+      <div className="table-footer">
+        <span>Showing {employees.length} people <span className="footer-dot">·</span> Personal information is role-restricted</span>
+        <span className="table-foot-secure"><ShieldCheck size={13} /> Secure directory</span>
+      </div>
+    </section>
+  );
 }
 
 function LeaveView({ data, employees, user, onReview, onAdd }) {
@@ -692,18 +794,18 @@ function AuditView({ data, role, employees }) {
   return <section className="panel directory-panel"><div className="directory-toolbar"><div><span className="panel-kicker">SECURITY & COMPLIANCE</span><h2>Audit trail</h2><p>Important changes recorded across your CRM workspace.</p></div><span className="audit-safe-pill"><ShieldCheck size={14} /> Admin only</span></div><div className="table-wrap"><table className="pro-table"><thead><tr><th>EVENT</th><th>ACTOR</th><th>ENTITY</th><th>RECORD</th><th>TIME</th><th>DETAILS</th></tr></thead><tbody>{data.map((item, index) => <tr key={item.id}><td><span className="audit-action-icon"><Activity size={14} /></span><strong className="audit-action-text">{item.action}</strong></td><td>{employees.find((employee) => employee.id === item.actor_employee_id)?.full_name || "System"}</td><td><span className="dept-chip">{item.entity_type}</span></td><td>#{item.entity_id ?? "—"}</td><td>{timestampLabel(item.created_at)}</td><td><code className="audit-details">{JSON.stringify(item.details || {})}</code></td></tr>)}</tbody></table>{!data.length && <EmptyState title="No audit events yet" message="Actions recorded by the API will show up here." />}</div></section>;
 }
 
-function SettingsView({ user, demoMode, darkMode, setDarkMode, connection, onLogout }) {
-  return <div className="settings-layout"><section className="panel settings-profile"><div className="settings-profile-cover"><div className="cover-orb" /><span className="profile-cover-label"><ShieldCheck size={13} /> SECURE WORKSPACE</span></div><div className="settings-profile-main"><div className="settings-avatar">{initials(user?.full_name)}</div><div><h2>{user?.full_name}</h2><p>{user?.email}</p><span className={`role-pill ${user?.app_role === "Admin" ? "role-admin" : "role-hr"}`}>{demoMode ? "Demo administrator" : user?.app_role}</span></div></div><div className="settings-details"><div><span>Department</span><strong>{user?.department || "—"}</strong></div><div><span>Account type</span><strong>{demoMode ? "Interactive demo" : "Company account"}</strong></div><div><span>Workspace access</span><strong>{user?.app_role || "Employee"}</strong></div><div><span>Connection</span><strong className="connection-text"><i />{connection}</strong></div></div></section><section className="panel settings-options"><div className="panel-heading"><div><span className="panel-kicker">PREFERENCES</span><h2>Make it yours</h2><p>A few controls for your workspace experience.</p></div><Settings size={20} className="panel-heading-icon" /></div><div className="settings-option-row"><span className="settings-option-icon"><Moon size={17} /></span><div><strong>Dark appearance</strong><small>Switch to a darker, lower-glare theme.</small></div><button className={`toggle-switch ${darkMode ? "toggle-on" : ""}`} role="switch" aria-checked={darkMode} onClick={() => setDarkMode((value) => !value)}><span /></button></div><div className="settings-option-row"><span className="settings-option-icon"><Bell size={17} /></span><div><strong>Workspace notifications</strong><small>Review pending items from the bell in the top bar.</small></div><span className="settings-value-pill">Available</span></div><div className="settings-option-row"><span className="settings-option-icon"><LockKeyhole size={17} /></span><div><strong>Role-based access</strong><small>Permissions are enforced by the FastAPI backend.</small></div><span className="settings-value-pill success-value">Enabled</span></div><div className="settings-option-row"><span className="settings-option-icon"><Building2 size={17} /></span><div><strong>Environment</strong><small>{demoMode ? "Sample data only. Changes aren't sent to the API." : "Connected to your configured CRM environment."}</small></div><span className="settings-value-pill">{demoMode ? "Demo" : "Live"}</span></div><div className="settings-footer"><div><strong>Need to switch accounts?</strong><small>Close this workspace session safely.</small></div><button className="secondary-button" onClick={onLogout}><LogOut size={14} /> {demoMode ? "Exit demo" : "Sign out"}</button></div></section><section className="settings-note"><ShieldCheck size={16} /><span><strong>Data safety matters.</strong> Use real employee data only after configuring OAuth, HTTPS, database backups, and organization-approved access rules.</span></section></div>;
+function SettingsView({ user, darkMode, setDarkMode, connection, onLogout }) {
+  return <div className="settings-layout"><section className="panel settings-profile"><div className="settings-profile-cover"><div className="cover-orb" /><span className="profile-cover-label"><ShieldCheck size={13} /> SECURE WORKSPACE</span></div><div className="settings-profile-main"><div className="settings-avatar">{initials(user?.full_name)}</div><div><h2>{user?.full_name}</h2><p>{user?.email}</p><span className={`role-pill ${user?.app_role === "Admin" ? "role-admin" : "role-hr"}`}>{user?.app_role}</span></div></div><div className="settings-details"><div><span>Department</span><strong>{user?.department || "—"}</strong></div><div><span>Job title</span><strong>{user?.role || "Team Member"}</strong></div><div><span>Workspace access</span><strong>{user?.app_role || "Employee"}</strong></div><div><span>Connection</span><strong className="connection-text"><i />{connection}</strong></div></div></section><section className="panel settings-options"><div className="panel-heading"><div><span className="panel-kicker">PREFERENCES</span><h2>Make it yours</h2><p>A few controls for your workspace experience.</p></div><Settings size={20} className="panel-heading-icon" /></div><div className="settings-option-row"><span className="settings-option-icon"><Moon size={17} /></span><div><strong>Dark appearance</strong><small>Switch to a darker, lower-glare theme.</small></div><button className={`toggle-switch ${darkMode ? "toggle-on" : ""}`} role="switch" aria-checked={darkMode} onClick={() => setDarkMode((value) => !value)}><span /></button></div><div className="settings-option-row"><span className="settings-option-icon"><Bell size={17} /></span><div><strong>Workspace notifications</strong><small>Review pending items from the bell in the top bar.</small></div><span className="settings-value-pill">Available</span></div><div className="settings-option-row"><span className="settings-option-icon"><LockKeyhole size={17} /></span><div><strong>Role-based access</strong><small>Permissions are enforced by the FastAPI backend.</small></div><span className="settings-value-pill success-value">Enabled</span></div><div className="settings-option-row"><span className="settings-option-icon"><Building2 size={17} /></span><div><strong>Environment</strong><small>Connected to Quickads live CRM environment.</small></div><span className="settings-value-pill">Live</span></div><div className="settings-footer"><div><strong>Need to switch accounts?</strong><small>Close this workspace session safely.</small></div><button className="secondary-button" onClick={onLogout}><LogOut size={14} /> Sign out</button></div></section><section className="settings-note"><ShieldCheck size={16} /><span><strong>Data safety matters.</strong> Real employee data is protected by organization-approved access rules and OAuth authentication.</span></section></div>;
 }
 
 function FormModal({ active, form, setForm, onClose, onSubmit, busy, employees, editingEmployee, canChangeRole }) {
-  const title = editingEmployee ? "Edit employee" : active === "Employees" || active === "Team Lookup" ? "Add a teammate" : active === "Leave Management" ? "Request time off" : active === "Credits & Usage" ? "Allocate employee credits" : active === "Announcements" ? "Share a company update" : `Create ${active === "Offboarding" ? "offboarding" : "onboarding"} task`;
+  const title = editingEmployee ? "Edit employee" : active === "Employees" ? "Add a teammate" : active === "Leave Management" ? "Request time off" : active === "Credits & Usage" ? "Allocate employee credits" : active === "Announcements" ? "Share a company update" : `Create ${active === "Offboarding" ? "offboarding" : "onboarding"} task`;
   const patch = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const field = (label, key, options = {}) => <label className="form-field"><span>{label}{options.required && <i> *</i>}</span><input required={options.required} type={options.type || "text"} min={options.min} max={options.max} value={form[key] ?? ""} placeholder={options.placeholder || ""} disabled={options.disabled} onChange={(event) => patch(key, event.target.value)} /></label>;
   const select = (label, key, options) => <label className="form-field"><span>{label}</span><select value={form[key] ?? ""} onChange={(event) => patch(key, event.target.value)}>{options.map((option) => typeof option === "string" ? <option key={option}>{option}</option> : <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
   const employeeOptions = employees.filter((employee) => employee.status !== "Inactive").map((employee) => ({ value: String(employee.id), label: `${employee.full_name} · ${employee.department}` }));
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><form className="modal pro-modal" onSubmit={onSubmit}><div className="modal-topline"><span className="modal-icon"><Sparkles size={19} /></span><button className="modal-close" type="button" onClick={onClose} aria-label="Close form"><X size={17} /></button></div><span className="panel-kicker">WORKSPACE ACTION</span><h2>{title}</h2><p className="modal-intro">{editingEmployee ? "Update the employee profile details below." : "Fill in the details to keep your workspace up to date."}</p><div className="modal-fields">
-    {(active === "Employees" || active === "Team Lookup") && <>{field("Full name", "full_name", { required: true, placeholder: "e.g. Aditi Sharma" })}{field("Work email", "email", { required: true, type: "email", placeholder: "name@company.com", disabled: Boolean(editingEmployee) })}<div className="form-row">{select("Department", "department", ["Engineering", "Product", "Design", "HR", "Finance", "Marketing", "Operations", "Sales", "Customer Success"])}{field("Job title", "role", { required: true, placeholder: "e.g. Software Engineer" })}</div>{field("Phone (optional)", "phone", { placeholder: "Work phone number" })}{editingEmployee && <div className="form-row">{select("Employee status", "status", canChangeRole ? ["Active", "On Leave", "Inactive"] : ["Active", "On Leave"])}{canChangeRole && select("Access role", "app_role", ["Employee", "HR", "Admin"])}</div>}{!editingEmployee && canChangeRole && select("Access role", "app_role", ["Employee", "HR", "Admin"])}</>}
+    {active === "Employees" && <>{field("Full name", "full_name", { required: true, placeholder: "e.g. Aditi Sharma" })}{field("Work email", "email", { required: true, type: "email", placeholder: "name@company.com", disabled: Boolean(editingEmployee) })}<div className="form-row">{select("Department", "department", ["Engineering", "Product", "Design", "HR", "Finance", "Marketing", "Operations", "Sales", "Customer Success"])}{field("Job title", "role", { required: true, placeholder: "e.g. Software Engineer" })}</div>{field("Phone (optional)", "phone", { placeholder: "Work phone number" })}{editingEmployee && <div className="form-row">{select("Employee status", "status", canChangeRole ? ["Active", "On Leave", "Inactive"] : ["Active", "On Leave"])}{canChangeRole && select("Access role", "app_role", ["Employee", "HR", "Admin"])}</div>}{!editingEmployee && canChangeRole && select("Access role", "app_role", ["Employee", "HR", "Admin"])}</>}
     {active === "Leave Management" && <>{select("Leave type", "leave_type", ["Casual Leave", "Sick Leave", "Earned Leave", "Unpaid Leave", "Work From Home"])}<div className="form-row">{field("Start date", "start_date", { required: true, type: "date" })}{field("End date", "end_date", { required: true, type: "date", min: form.start_date || undefined })}</div><label className="form-field"><span>Reason (optional)</span><textarea value={form.reason ?? ""} placeholder="Add a little context for your manager…" rows={3} onChange={(event) => patch("reason", event.target.value)} /></label></>}
     {active === "Credits & Usage" && <>{select("Employee", "employee_id", employeeOptions)}{select("Credit category", "category", ["Learning", "Wellness", "Travel", "Home Office", "Recognition", "Other"])}<div className="form-row">{field("Allocated credits", "allocated_credits", { required: true, type: "number", min: "0" })}{field("Credits used", "used_credits", { required: true, type: "number", min: "0" })}</div></>}
     {active === "Announcements" && <>{field("Announcement title", "title", { required: true, placeholder: "What should the team know?" })}<label className="form-field"><span>Message</span><textarea required value={form.body ?? ""} placeholder="Share the details with your team…" rows={5} onChange={(event) => patch("body", event.target.value)} /></label><label className="checkbox-field"><input type="checkbox" checked={Boolean(form.published)} onChange={(event) => patch("published", event.target.checked)} /><span>Publish this announcement immediately</span></label></>}
