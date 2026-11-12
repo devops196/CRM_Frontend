@@ -1,12 +1,13 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Internal CRM Pro | People Operations",
+  title: "Internal CRM - Quickads.ai",
   description:
-    "A premium people operations workspace for employee records, leave, benefits, workflows, and insights.",
-  applicationName: "Internal CRM Pro",
+    "Internal CRM - Quickads.ai | People Operations workspace for employee directory, leave, benefits, and workflows.",
+  applicationName: "Internal CRM - Quickads.ai",
   keywords: [
-    "internal CRM",
+    "Internal CRM - Quickads.ai",
+    "Quickads",
     "employee management",
     "HR operations",
     "people analytics",
