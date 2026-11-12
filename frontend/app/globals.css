@@ -89,3 +89,45 @@
 .credit-action-btn.delete-btn{background:transparent;color:var(--muted);padding:7px 9px}
 .credit-action-btn.delete-btn:hover{background:#fde8e8;color:#d65e52;border-color:#f8b4b4}
 .theme-dark .credit-action-btn.delete-btn:hover{background:#3b1818;color:#f98080;border-color:#5a2323}
+
+/* Brand typography: Stacked responsive layout */
+.brand-text-stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  line-height: 1.15;
+  text-align: left;
+}
+.brand-title {
+  font-family: Manrope, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: #f4fff7;
+  white-space: nowrap;
+}
+.brand-subtitle {
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #9be5b2;
+  white-space: nowrap;
+}
+.auth-brand .brand-title {
+  color: #153c27;
+}
+.auth-brand .brand-subtitle {
+  color: #208653;
+}
+.theme-dark .auth-brand .brand-title {
+  color: #edf5ed;
+}
+.theme-dark .auth-brand .brand-subtitle {
+  color: #5bd68f;
+}
+.sidebar-collapsed .brand-text-stacked {
+  display: none !important;
+}
+

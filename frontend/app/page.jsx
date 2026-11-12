@@ -518,7 +518,7 @@ export default function Home() {
       {mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}
       {!isWorkspace ? (
         <section className="auth-screen">
-          <div className="auth-topline"><div className="brand auth-brand"><img src="/quickads-logo.png" alt="Quickads.ai" className="brand-logo-img" /><span>Internal CRM <span className="brand-light">· Quickads.ai</span></span></div><span className="auth-version"><span className="live-dot" /> INTERNAL CRM - QUICKADS.AI</span></div>
+          <div className="auth-topline"><div className="brand auth-brand"><img src="/quickads-logo.png" alt="Quickads.ai" className="brand-logo-img" /><div className="brand-text brand-text-stacked"><strong className="brand-title">Internal CRM</strong><span className="brand-subtitle">Quickads.ai</span></div></div><span className="auth-version"><span className="live-dot" /> INTERNAL CRM - QUICKADS.AI</span></div>
           <div className="auth-grid">
             <div className="auth-story">
               <div className="story-badge"><Sparkles size={14} /> THE WORKPLACE, REIMAGINED</div>
@@ -546,7 +546,7 @@ export default function Home() {
       ) : (
         <>
           <aside className={`sidebar ${mobile ? "sidebar-open" : ""}`}>
-            <div className="brand"><img src="/quickads-logo.png" alt="Quickads.ai" className="brand-logo-img" /><span className="brand-text">Internal CRM <span className="brand-light">· Quickads.ai</span></span><button className="close-nav" onClick={() => setMobile(false)} aria-label="Close sidebar"><X size={18} /></button></div>
+            <div className="brand"><img src="/quickads-logo.png" alt="Quickads.ai" className="brand-logo-img" /><div className="brand-text brand-text-stacked"><strong className="brand-title">Internal CRM</strong><span className="brand-subtitle">Quickads.ai</span></div><button className="close-nav" onClick={() => setMobile(false)} aria-label="Close sidebar"><X size={18} /></button></div>
             <div className="workspace-switcher"><div className="workspace-emblem"><Building2 size={16} /></div><div className="workspace-switcher-copy"><strong>Quickads Workspace</strong><small>Internal CRM - Quickads.ai</small></div><ChevronDown size={14} /></div>
             <div className="workspace-label">WORKSPACE</div>
             <nav className="sidebar-nav">{NAV.slice(0, 8).map(([label, Icon, helper]) => <button key={label} onClick={() => navigate(label)} className={`nav-item ${active === label ? "selected" : ""}`} title={collapsed ? label : undefined}><Icon size={18} /><span className="nav-copy">{label}</span>{label === "Leave Management" && pendingLeaves.length > 0 && <span className="nav-count">{pendingLeaves.length}</span>}</button>)}
