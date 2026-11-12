@@ -8,7 +8,7 @@ import {
   ChevronDown, CircleAlert, CircleDollarSign, CircleHelp,
   ClipboardCheck, ClipboardList, Clock3, Command, Download,
   FileSpreadsheet, Filter, LayoutDashboard, LayoutGrid, LayoutList,
-  LockKeyhole, LogOut, Mail, Megaphone, Menu, Moon, Pencil, Phone,
+  LockKeyhole, LogOut, Mail, Megaphone, Menu, MinusCircle, Moon, Pencil, Phone,
   Plus, RefreshCw, Rocket, Search, Settings, ShieldCheck,
   SlidersHorizontal, Sparkles, Sun, Target, Trash2, TrendingUp,
   Users, UserRound, Zap, Layers3, X
@@ -455,6 +455,31 @@ export default function Home() {
     } catch (exception) { setError(exception.message); }
   }
 
+  async function deductCredit(creditId, amount, reason) {
+    try {
+      await api(`/credits/${creditId}/deduct`, token, {
+        method: "POST",
+        body: JSON.stringify({ amount: Number(amount), reason: reason || null })
+      });
+      notify("Credits deducted successfully.");
+      await loadSection("Credits & Usage");
+    } catch (exception) {
+      setError(exception.message || "Could not deduct credits.");
+      throw exception;
+    }
+  }
+
+  async function deleteCredit(creditId) {
+    if (!window.confirm("Are you sure you want to remove this credit allocation? The change will be immediately updated in the database.")) return;
+    try {
+      await api(`/credits/${creditId}`, token, { method: "DELETE" });
+      notify("Credit allocation removed.");
+      await loadSection("Credits & Usage");
+    } catch (exception) {
+      setError(exception.message || "Could not delete credit allocation.");
+    }
+  }
+
   const filteredEmployees = useMemo(() => employees.filter((employee) => {
     const query = search.trim().toLowerCase();
     const matchesQuery = !query || `${employee.full_name} ${employee.email} ${employee.department} ${employee.role} ${employee.app_role}`.toLowerCase().includes(query);
@@ -547,7 +572,7 @@ export default function Home() {
               {active === "Dashboard" ? <DashboardView employees={employees} metrics={metrics} records={records} navigate={navigate} loading={loading} user={user} /> : null}
               {active === "Employees" ? <EmployeeView employees={filteredEmployees} departments={departments} departmentFilter={departmentFilter} setDepartmentFilter={setDepartmentFilter} clearSearch={() => setSearch("")} statusFilter={statusFilter} setStatusFilter={setStatusFilter} onAdd={openForm} onEdit={editEmployee} onDeactivate={deactivateEmployee} canManage={isAdminOrHr} isAdmin={isAdmin} /> : null}
               {active === "Leave Management" ? <LeaveView data={records.leaves} employees={employees} user={user} onReview={reviewLeave} onAdd={openForm} /> : null}
-              {active === "Credits & Usage" ? <CreditsView data={records.credits} employees={employees} onAdd={openForm} canManage={isAdminOrHr} /> : null}
+              {active === "Credits & Usage" ? <CreditsView data={records.credits} employees={employees} onAdd={openForm} onDeduct={deductCredit} onDelete={deleteCredit} canManage={isAdminOrHr} /> : null}
               {active === "Announcements" ? <AnnouncementsView data={records.announcements} onAdd={openForm} onDelete={deleteAnnouncement} canManage={isAdminOrHr} /> : null}
               {active === "Onboarding" || active === "Offboarding" ? <WorkflowView data={records[active === "Offboarding" ? "offboarding" : "onboarding"]} employees={employees} onAdd={openForm} onStatus={taskStatus} canManage={isAdminOrHr} type={active} /> : null}
               {active === "Reports & Export" ? <ReportsView employees={employees} records={records} onExport={openExport} navigate={navigate} /> : null}
@@ -763,10 +788,16 @@ function LeaveView({ data, employees, user, onReview, onAdd }) {
   return <><div className="module-kpis"><ModuleKpi Icon={Clock3} title="Awaiting review" value={pending} tone="amber" /><ModuleKpi Icon={CheckCheck} title="Approved" value={approved} tone="green" /><ModuleKpi Icon={CircleAlert} title="Declined" value={rejected} tone="rose" /></div><section className="panel directory-panel"><div className="directory-toolbar"><div><span className="panel-kicker">TIME OFF & ABSENCE</span><h2>Leave requests</h2><p>Every request, decision, and date in one timeline.</p></div><button className="primary-button" onClick={onAdd}><Plus size={15} /> Apply for leave</button></div><div className="table-wrap"><table className="pro-table"><thead><tr><th>EMPLOYEE</th><th>LEAVE TYPE</th><th>DATES</th><th>REASON</th><th>STATUS</th><th>{["Admin", "HR"].includes(user?.app_role) ? "REVIEW" : "REVIEW NOTE"}</th></tr></thead><tbody>{data.map((leave, index) => <tr key={leave.id}><td><div className="table-person"><div className={`avatar employee-avatar avatar-tone-${index % 6}`}>{initials(employees.find((e) => e.id === leave.employee_id)?.full_name || "TM")}</div><div><strong>{employees.find((e) => e.id === leave.employee_id)?.full_name || `Employee #${leave.employee_id}`}</strong><span>{employees.find((e) => e.id === leave.employee_id)?.department || "—"}</span></div></div></td><td>{leave.leave_type}</td><td><strong className="date-range">{dateLabel(leave.start_date)}</strong><small className="date-sub">to {dateLabel(leave.end_date)}</small></td><td className="reason-cell">{leave.reason || "No reason added"}</td><td><StatusBadge status={leave.status} /></td><td>{["Admin", "HR"].includes(user?.app_role) && leave.status === "Pending" ? <div className="review-actions"><button className="approve-button" onClick={() => onReview(leave.id, "Approved")}><Check size={13} /> Approve</button><button className="reject-button" onClick={() => onReview(leave.id, "Rejected")}><X size={13} /> Decline</button></div> : <span className="review-note">{leave.review_note || "—"}</span>}</td></tr>)}</tbody></table>{!data.length && <EmptyState title="No leave requests" message="When someone requests time off, it will appear here." />}</div></section></>;
 }
 
-function CreditsView({ data, employees, onAdd, canManage }) {
+function CreditsView({ data, employees, onAdd, onDeduct, onDelete, canManage }) {
   const [memberSearch, setMemberSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All categories");
   const [viewMode, setViewMode] = useState("table");
+
+  // Deduct / Remove credits modal state (Admin & HR only)
+  const [deductTarget, setDeductTarget] = useState(null);
+  const [deductAmount, setDeductAmount] = useState("");
+  const [deductReason, setDeductReason] = useState("");
+  const [deductBusy, setDeductBusy] = useState(false);
 
   const allocated = data.reduce((sum, item) => sum + Math.round(Number(item.allocated_credits || 0)), 0);
   const used = data.reduce((sum, item) => sum + Math.round(Number(item.used_credits || 0)), 0);
@@ -789,6 +820,23 @@ function CreditsView({ data, employees, onAdd, canManage }) {
       return matchesMember && (categoryFilter === "All categories" || credit.category === categoryFilter);
     });
   }, [data, employees, memberSearch, categoryFilter]);
+
+  const handleDeductSubmit = async (event) => {
+    event.preventDefault();
+    if (!deductTarget) return;
+    const amountNum = Math.round(Number(deductAmount));
+    if (!amountNum || amountNum <= 0) return;
+    setDeductBusy(true);
+    try {
+      await onDeduct(deductTarget.id, amountNum, deductReason);
+      setDeductTarget(null);
+      setDeductAmount("");
+      setDeductReason("");
+    } catch {}
+    finally {
+      setDeductBusy(false);
+    }
+  };
 
   return (
     <>
@@ -894,6 +942,7 @@ function CreditsView({ data, employees, onAdd, canManage }) {
                   <th className="align-right">USED</th>
                   <th className="align-right">REMAINING</th>
                   <th>UTILIZATION</th>
+                  {canManage && <th className="align-right">ACTIONS</th>}
                 </tr>
               </thead>
               <tbody>
@@ -928,6 +977,29 @@ function CreditsView({ data, employees, onAdd, canManage }) {
                           <small>{percent}%</small>
                         </div>
                       </td>
+                      {canManage && (
+                        <td className="align-right">
+                          <div className="row-action-group">
+                            <button
+                              type="button"
+                              className="table-action"
+                              onClick={() => { setDeductTarget(credit); setDeductAmount(""); setDeductReason(""); }}
+                              title="Deduct / remove credits"
+                              disabled={balance <= 0}
+                            >
+                              <MinusCircle size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              className="table-action danger-action"
+                              onClick={() => onDelete(credit.id)}
+                              title="Delete allocation completely"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -995,6 +1067,28 @@ function CreditsView({ data, employees, onAdd, canManage }) {
                       <span style={{ width: `${percent}%` }} />
                     </div>
                   </div>
+
+                  {canManage && (
+                    <div className="credit-card-actions">
+                      <button
+                        type="button"
+                        className="credit-action-btn deduct-btn"
+                        onClick={() => { setDeductTarget(credit); setDeductAmount(""); setDeductReason(""); }}
+                        disabled={balance <= 0}
+                        title={balance <= 0 ? "No remaining balance to deduct" : "Deduct / remove credits"}
+                      >
+                        <MinusCircle size={13} /> Deduct credits
+                      </button>
+                      <button
+                        type="button"
+                        className="credit-action-btn delete-btn"
+                        onClick={() => onDelete(credit.id)}
+                        title="Delete allocation completely"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -1009,6 +1103,93 @@ function CreditsView({ data, employees, onAdd, canManage }) {
           </div>
         )}
       </section>
+
+      {deductTarget && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setDeductTarget(null); }}
+        >
+          <form className="modal pro-modal" onSubmit={handleDeductSubmit}>
+            <div className="modal-topline">
+              <span className="modal-icon"><MinusCircle size={19} /></span>
+              <button
+                className="modal-close"
+                type="button"
+                onClick={() => setDeductTarget(null)}
+                aria-label="Close"
+              >
+                <X size={17} />
+              </button>
+            </div>
+
+            <span className="panel-kicker">ADMIN ACTION</span>
+            <h2>Deduct employee credits</h2>
+            <p className="modal-intro">
+              Remove or deduct credits from <strong>{employees.find((e) => Number(e.id) === Number(deductTarget.employee_id))?.full_name || `Employee #${deductTarget.employee_id}`}</strong> ({deductTarget.category}). This updates the database in real time.
+            </p>
+
+            <div className="modal-fields">
+              <div className="credit-card-balance" style={{ marginBottom: 4 }}>
+                <div className="credit-balance-big">
+                  {Math.max(0, Math.round(Number(deductTarget.allocated_credits || 0)) - Math.round(Number(deductTarget.used_credits || 0))).toLocaleString("en-IN")}
+                  <small>available balance</small>
+                </div>
+                <span className="dept-chip">{deductTarget.category}</span>
+              </div>
+
+              <label className="form-field">
+                <span>Credits to deduct / remove <i>*</i></span>
+                <input
+                  required
+                  type="number"
+                  min="1"
+                  max={Math.max(1, Math.round(Number(deductTarget.allocated_credits || 0)) - Math.round(Number(deductTarget.used_credits || 0)))}
+                  step="1"
+                  value={deductAmount}
+                  placeholder={`Enter amount (max ${Math.max(0, Math.round(Number(deductTarget.allocated_credits || 0)) - Math.round(Number(deductTarget.used_credits || 0)))})`}
+                  onChange={(e) => setDeductAmount(e.target.value)}
+                  autoFocus
+                />
+              </label>
+
+              <label className="form-field">
+                <span>Reason / Note (optional)</span>
+                <input
+                  type="text"
+                  value={deductReason}
+                  placeholder="e.g. Conference ticket, course refund adjustment"
+                  onChange={(e) => setDeductReason(e.target.value)}
+                />
+              </label>
+
+              <p className="modal-note">
+                <ShieldCheck size={13} /> Only Admin and HR users are authorized to perform this operation. Changes are recorded in the audit log.
+              </p>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setDeductTarget(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="primary-button"
+                disabled={deductBusy || !deductAmount || Number(deductAmount) <= 0}
+              >
+                {deductBusy ? (
+                  <><RefreshCw size={14} className="spin" /> Updating database…</>
+                ) : (
+                  <><Check size={15} /> Confirm & Deduct</>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </>
   );
 }

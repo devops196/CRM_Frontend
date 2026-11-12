@@ -80,3 +80,10 @@
 .credit-breakdown-row strong{font-size:13px;color:var(--ink);font-weight:800}
 .credit-progress-wrap{display:flex;flex-direction:column;gap:6px;padding:0 2px}
 .credit-progress-header{display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+.credit-card-actions{display:flex;align-items:center;gap:8px;padding-top:8px;border-top:1px solid var(--line);margin-top:auto}
+.credit-action-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:7px 11px;border-radius:8px;font-size:10px;font-weight:700;transition:.15s;border:1px solid var(--line)}
+.credit-action-btn.deduct-btn{flex:1;background:var(--surface-soft);color:var(--ink)}
+.credit-action-btn.deduct-btn:hover{background:var(--surface-tint);border-color:#b8dfc0;color:var(--green)}
+.credit-action-btn.delete-btn{background:transparent;color:var(--muted);padding:7px 9px}
+.credit-action-btn.delete-btn:hover{background:#fde8e8;color:#d65e52;border-color:#f8b4b4}
+.theme-dark .credit-action-btn.delete-btn:hover{background:#3b1818;color:#f98080;border-color:#5a2323}
