@@ -356,6 +356,7 @@ export default function Home() {
 
   function openForm() {
     setError(""); setEditingEmployee(null);
+    if (active === "Credits & Usage" && !isAdminOrHr) return;
     if (active === "Employees") setForm({ ...INITIAL_FORMS.employee });
     else if (active === "Leave Management") setForm({ ...INITIAL_FORMS.leave });
     else if (active === "Credits & Usage") setForm({ ...INITIAL_FORMS.credit });
@@ -402,6 +403,7 @@ export default function Home() {
         await api("/leaves", token, { method: "POST", body: JSON.stringify(leaveBody) });
         notify("Leave request submitted.");
       } else if (active === "Credits & Usage") {
+        if (!isAdminOrHr) throw new Error("Only Admin and HR users are authorized to allocate credits.");
         if (!body.employee_id) throw new Error("Please select an active team member from the list.");
         const creditBody = { ...body, employee_id: Number(body.employee_id), allocated_credits: Math.round(Number(body.allocated_credits)), used_credits: Math.round(Number(body.used_credits || 0)) };
         await api("/credits", token, { method: "POST", body: JSON.stringify(creditBody) });
@@ -917,12 +919,6 @@ function CreditsView({ data, employees, onAdd, onDeduct, onDelete, canManage }) 
                 ))}
               </select>
             </label>
-
-            {canManage && (
-              <button className="primary-button" onClick={onAdd}>
-                <Plus size={15} /> Allocate credits
-              </button>
-            )}
           </div>
         </div>
 
@@ -1008,7 +1004,7 @@ function CreditsView({ data, employees, onAdd, onDeduct, onDelete, canManage }) 
             {!visibleCredits.length && (
               <EmptyState
                 title={data.length ? "No matching credit records" : "No credit allocations yet"}
-                message={data.length ? "Try clearing your search query or selecting another category." : "Allocate credits to a teammate to start tracking their allowances."}
+                message={data.length ? "Try clearing your search query or selecting another category." : canManage ? "Allocate credits to a teammate to start tracking their allowances." : "No credit allowances have been granted to your account yet."}
                 actionLabel={data.length ? "Clear filters" : undefined}
                 onAction={data.length ? () => { setMemberSearch(""); setCategoryFilter("All categories"); } : undefined}
               />
@@ -1095,7 +1091,7 @@ function CreditsView({ data, employees, onAdd, onDeduct, onDelete, canManage }) 
             {!visibleCredits.length && (
               <EmptyState
                 title={data.length ? "No matching credit records" : "No credit allocations yet"}
-                message={data.length ? "Try clearing your search query or selecting another category." : "Allocate credits to a teammate to start tracking their allowances."}
+                message={data.length ? "Try clearing your search query or selecting another category." : canManage ? "Allocate credits to a teammate to start tracking their allowances." : "No credit allowances have been granted to your account yet."}
                 actionLabel={data.length ? "Clear filters" : undefined}
                 onAction={data.length ? () => { setMemberSearch(""); setCategoryFilter("All categories"); } : undefined}
               />
