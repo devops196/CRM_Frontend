@@ -56,3 +56,27 @@
 .employee-contact-link:hover{color:var(--green)}
 .employee-card-bottom{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;padding-top:2px}
 .employee-card-joined{font-size:8px;color:var(--muted)}
+
+/* Credit / Benefit Cards */
+.credit-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow);transition:transform .18s,border-color .18s}
+.credit-card:hover{transform:translateY(-2px);border-color:#b8dfc0}
+.credit-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.credit-card-person{display:flex;align-items:center;gap:10px;min-width:0}
+.credit-card-person .avatar{width:36px;height:36px;border-radius:11px;font-size:11px;flex-shrink:0}
+.credit-card-person>div{display:grid;gap:2px;min-width:0}
+.credit-card-person strong{font-size:12px;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.credit-card-person span{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.credit-card-balance{display:flex;align-items:baseline;justify-content:space-between;padding:12px 14px;background:var(--surface-soft);border:1px solid var(--line);border-radius:10px}
+.credit-balance-big{font-size:22px;font-weight:800;font-family:Manrope,sans-serif;color:var(--ink);display:flex;align-items:baseline;gap:5px}
+.credit-balance-big small{font-size:11px;font-weight:600;color:var(--muted)}
+.credit-balance-tag{font-size:9px;font-weight:700;padding:3px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.4px}
+.credit-balance-tag.positive{background:#e5f5e9;color:#187948}
+.theme-dark .credit-balance-tag.positive{background:#163923;color:#5bd68f}
+.credit-balance-tag.depleted{background:#fde8e8;color:#9b1c1c}
+.theme-dark .credit-balance-tag.depleted{background:#3b1818;color:#f98080}
+.credit-breakdown-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;padding:0 2px}
+.credit-breakdown-row div{display:flex;flex-direction:column;gap:2px}
+.credit-breakdown-row span{font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.credit-breakdown-row strong{font-size:13px;color:var(--ink);font-weight:800}
+.credit-progress-wrap{display:flex;flex-direction:column;gap:6px;padding:0 2px}
+.credit-progress-header{display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}

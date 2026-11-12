@@ -41,7 +41,7 @@ const INITIAL_RECORDS = {
 const INITIAL_FORMS = {
   employee: { full_name: "", email: "", department: "Engineering", role: "", app_role: "Employee", status: "Active", phone: "" },
   leave: { leave_type: "Casual Leave", start_date: "", end_date: "", reason: "" },
-  credit: { category: "Learning", employee_id: "", allocated_credits: "100", used_credits: "0" },
+  credit: { category: "Learning", employee_id: "", allocated_credits: 100, used_credits: 0 },
   announcement: { title: "", body: "", published: true },
   task: { workflow_type: "onboarding", employee_id: "4", title: "", description: "", owner_id: "2", due_date: "", status: "Pending" },
 };
@@ -403,7 +403,7 @@ export default function Home() {
         notify("Leave request submitted.");
       } else if (active === "Credits & Usage") {
         if (!body.employee_id) throw new Error("Please select an active team member from the list.");
-        const creditBody = { ...body, employee_id: Number(body.employee_id), allocated_credits: Number(body.allocated_credits), used_credits: Number(body.used_credits) };
+        const creditBody = { ...body, employee_id: Number(body.employee_id), allocated_credits: Math.round(Number(body.allocated_credits)), used_credits: Math.round(Number(body.used_credits || 0)) };
         await api("/credits", token, { method: "POST", body: JSON.stringify(creditBody) });
         notify("Credit allocation saved.");
       } else if (active === "Announcements") {
@@ -766,17 +766,251 @@ function LeaveView({ data, employees, user, onReview, onAdd }) {
 function CreditsView({ data, employees, onAdd, canManage }) {
   const [memberSearch, setMemberSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All categories");
-  const allocated = data.reduce((sum, item) => sum + Number(item.allocated_credits || 0), 0);
-  const used = data.reduce((sum, item) => sum + Number(item.used_credits || 0), 0);
-  const remaining = allocated - used;
+  const [viewMode, setViewMode] = useState("table");
+
+  const allocated = data.reduce((sum, item) => sum + Math.round(Number(item.allocated_credits || 0)), 0);
+  const used = data.reduce((sum, item) => sum + Math.round(Number(item.used_credits || 0)), 0);
+  const remaining = Math.max(0, allocated - used);
+  const overallPercent = allocated > 0 ? Math.min(100, Math.round((used / allocated) * 100)) : 0;
+
   const categories = ["All categories", ...new Set(data.map((item) => item.category).filter(Boolean))];
-  const visibleCredits = data.filter((credit) => {
-    const person = employees.find((employee) => Number(employee.id) === Number(credit.employee_id));
-    const query = memberSearch.trim().toLowerCase();
-    const matchesMember = !query || [person?.full_name, person?.email, person?.department, String(credit.employee_id)].some((value) => String(value || "").toLowerCase().includes(query));
-    return matchesMember && (categoryFilter === "All categories" || credit.category === categoryFilter);
-  });
-  return <><div className="module-kpis"><ModuleKpi Icon={CircleDollarSign} title="Credits allocated" value={allocated.toLocaleString("en-IN", { maximumFractionDigits: 0 })} tone="green" prefix="" /><ModuleKpi Icon={TrendingUp} title="Credits used" value={used.toLocaleString("en-IN", { maximumFractionDigits: 0 })} tone="violet" /><ModuleKpi Icon={Target} title="Available balance" value={remaining.toLocaleString("en-IN", { maximumFractionDigits: 0 })} tone="mint" /></div><section className="panel directory-panel"><div className="directory-toolbar"><div><span className="panel-kicker">EMPLOYEE BENEFITS</span><h2>Credits & usage</h2><p>Search any member and review their allocated, used, and remaining credits.</p></div>{canManage && <button className="primary-button" onClick={onAdd}><Plus size={15} /> Allocate credits</button>}</div><div className="credit-filters" style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap",padding:"16px 20px",borderBottom:"1px solid var(--line, #e8eaf0)"}}><label style={{display:"flex",alignItems:"center",gap:9,flex:"1 1 260px",minWidth:220,padding:"10px 12px",border:"1px solid var(--line, #e8eaf0)",borderRadius:10}}><Search size={16}/><input aria-label="Search credits by member" value={memberSearch} onChange={(event)=>setMemberSearch(event.target.value)} placeholder="Search member by name, email or department…" style={{border:0,outline:0,background:"transparent",width:"100%",color:"inherit"}}/></label><select aria-label="Filter by credit category" value={categoryFilter} onChange={(event)=>setCategoryFilter(event.target.value)} style={{padding:"10px 12px",borderRadius:10,border:"1px solid var(--line, #e8eaf0)",background:"transparent",color:"inherit"}}>{categories.map((category)=><option key={category} value={category}>{category}</option>)}</select><span style={{fontSize:13,opacity:.7}}>{visibleCredits.length} allocation{visibleCredits.length===1?"":"s"}</span></div><div className="table-wrap"><table className="pro-table"><thead><tr><th>EMPLOYEE</th><th>CATEGORY</th><th>ALLOCATED</th><th>USED</th><th>REMAINING</th><th>UTILIZATION</th></tr></thead><tbody>{visibleCredits.map((credit, index) => { const person = employees.find((employee) => Number(employee.id) === Number(credit.employee_id)); const total = Number(credit.allocated_credits || 0); const usedValue = Number(credit.used_credits || 0); const balance = total - usedValue; const percent = total ? Math.min(100, usedValue / total * 100) : 0; return <tr key={credit.id}><td><div className="table-person"><div className={`avatar employee-avatar avatar-tone-${index % 6}`}>{initials(person?.full_name || "TM")}</div><div><strong>{person?.full_name || `Employee #${credit.employee_id}`}</strong><span>{person?.email || person?.department || `Member ID: ${credit.employee_id}`}</span></div></div></td><td><span className="dept-chip">{credit.category}</span></td><td className="number-cell">{total.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td><td className="number-cell">{usedValue.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td><td className="number-cell balance-cell">{balance.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td><td><div className="utilization-cell"><div className="utilization-track"><span style={{ width: `${percent}%` }} /></div><small>{Math.round(percent)}%</small></div></td></tr>; })}</tbody></table>{!visibleCredits.length && <EmptyState title={data.length ? "No matching credit records" : "No credit allocations yet"} message={data.length ? "Try another member name, email, or category." : "Allocate credits to a member to start tracking benefits."} />}</div></section></>;
+
+  const visibleCredits = useMemo(() => {
+    return data.filter((credit) => {
+      const person = employees.find((employee) => Number(employee.id) === Number(credit.employee_id));
+      const query = memberSearch.trim().toLowerCase();
+      const matchesMember = !query || [
+        person?.full_name,
+        person?.email,
+        person?.department,
+        String(credit.employee_id),
+        credit.category
+      ].some((value) => String(value || "").toLowerCase().includes(query));
+      return matchesMember && (categoryFilter === "All categories" || credit.category === categoryFilter);
+    });
+  }, [data, employees, memberSearch, categoryFilter]);
+
+  return (
+    <>
+      <div className="module-kpis">
+        <ModuleKpi
+          Icon={CircleDollarSign}
+          title="Credits allocated"
+          value={allocated.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+          tone="green"
+        />
+        <ModuleKpi
+          Icon={TrendingUp}
+          title="Credits used"
+          value={used.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+          tone="violet"
+        />
+        <ModuleKpi
+          Icon={Target}
+          title="Available balance"
+          value={remaining.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+          tone="mint"
+        />
+        <ModuleKpi
+          Icon={Zap}
+          title="Budget utilization"
+          value={`${overallPercent}%`}
+          tone={overallPercent > 80 ? "amber" : "green"}
+        />
+      </div>
+
+      <section className="panel directory-panel">
+        <div className="directory-toolbar">
+          <div>
+            <span className="panel-kicker">EMPLOYEE BENEFITS</span>
+            <h2>Credits & usage</h2>
+            <p>Monitor learning allowances, wellness benefits, and home office budgets.</p>
+          </div>
+
+          <div className="toolbar-actions">
+            <div className="view-toggle">
+              <button
+                type="button"
+                className={`view-toggle-btn ${viewMode === "table" ? "active" : ""}`}
+                onClick={() => setViewMode("table")}
+                title="Table view"
+              >
+                <LayoutList size={13} /> Table
+              </button>
+              <button
+                type="button"
+                className={`view-toggle-btn ${viewMode === "cards" ? "active" : ""}`}
+                onClick={() => setViewMode("cards")}
+                title="Cards view"
+              >
+                <LayoutGrid size={13} /> Cards
+              </button>
+            </div>
+
+            <label className="toolbar-search">
+              <Search size={14} />
+              <input
+                aria-label="Search credits by member"
+                value={memberSearch}
+                onChange={(event) => setMemberSearch(event.target.value)}
+                placeholder="Search member, email, or dept…"
+              />
+            </label>
+
+            <label className="filter-select">
+              <Filter size={14} />
+              <select
+                aria-label="Filter by credit category"
+                value={categoryFilter}
+                onChange={(event) => setCategoryFilter(event.target.value)}
+              >
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </label>
+
+            {canManage && (
+              <button className="primary-button" onClick={onAdd}>
+                <Plus size={15} /> Allocate credits
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="table-meta">
+          <span><span className="table-live-dot" /> Benefits ledger synced</span>
+          <span>Showing <strong>{visibleCredits.length}</strong> {viewMode === "table" ? "allocations" : "cards"}</span>
+        </div>
+
+        {viewMode === "table" ? (
+          <div className="table-wrap">
+            <table className="pro-table">
+              <thead>
+                <tr>
+                  <th>EMPLOYEE</th>
+                  <th>CATEGORY</th>
+                  <th className="align-right">ALLOCATED</th>
+                  <th className="align-right">USED</th>
+                  <th className="align-right">REMAINING</th>
+                  <th>UTILIZATION</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleCredits.map((credit, index) => {
+                  const person = employees.find((employee) => Number(employee.id) === Number(credit.employee_id));
+                  const total = Math.round(Number(credit.allocated_credits || 0));
+                  const usedValue = Math.round(Number(credit.used_credits || 0));
+                  const balance = Math.max(0, total - usedValue);
+                  const percent = total > 0 ? Math.min(100, Math.round((usedValue / total) * 100)) : 0;
+                  return (
+                    <tr key={credit.id}>
+                      <td>
+                        <div className="table-person">
+                          <div className={`avatar employee-avatar avatar-tone-${index % 6}`}>
+                            {initials(person?.full_name || "TM")}
+                          </div>
+                          <div>
+                            <strong>{person?.full_name || `Employee #${credit.employee_id}`}</strong>
+                            <span>{person?.email || person?.department || `Member #${credit.employee_id}`}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td><span className="dept-chip">{credit.category}</span></td>
+                      <td className="number-cell align-right">{total.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
+                      <td className="number-cell align-right">{usedValue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
+                      <td className="number-cell balance-cell align-right">{balance.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
+                      <td>
+                        <div className="utilization-cell">
+                          <div className="utilization-track">
+                            <span style={{ width: `${percent}%` }} />
+                          </div>
+                          <small>{percent}%</small>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {!visibleCredits.length && (
+              <EmptyState
+                title={data.length ? "No matching credit records" : "No credit allocations yet"}
+                message={data.length ? "Try clearing your search query or selecting another category." : "Allocate credits to a teammate to start tracking their allowances."}
+                actionLabel={data.length ? "Clear filters" : undefined}
+                onAction={data.length ? () => { setMemberSearch(""); setCategoryFilter("All categories"); } : undefined}
+              />
+            )}
+          </div>
+        ) : (
+          <div className="employee-cards-grid" style={{ padding: "16px 20px 24px" }}>
+            {visibleCredits.map((credit, index) => {
+              const person = employees.find((employee) => Number(employee.id) === Number(credit.employee_id));
+              const total = Math.round(Number(credit.allocated_credits || 0));
+              const usedValue = Math.round(Number(credit.used_credits || 0));
+              const balance = Math.max(0, total - usedValue);
+              const percent = total > 0 ? Math.min(100, Math.round((usedValue / total) * 100)) : 0;
+              return (
+                <div key={credit.id} className="credit-card">
+                  <div className="credit-card-top">
+                    <div className="credit-card-person">
+                      <div className={`avatar employee-avatar avatar-tone-${index % 6}`}>
+                        {initials(person?.full_name || "TM")}
+                      </div>
+                      <div>
+                        <strong>{person?.full_name || `Employee #${credit.employee_id}`}</strong>
+                        <span>{person?.department || "Team Member"}</span>
+                      </div>
+                    </div>
+                    <span className="dept-chip">{credit.category}</span>
+                  </div>
+
+                  <div className="credit-card-balance">
+                    <div className="credit-balance-big">
+                      {balance.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                      <small>credits left</small>
+                    </div>
+                    <span className={`credit-balance-tag ${balance > 0 ? "positive" : "depleted"}`}>
+                      {balance > 0 ? "Available" : "Exhausted"}
+                    </span>
+                  </div>
+
+                  <div className="credit-breakdown-row">
+                    <div>
+                      <span>Allocated</span>
+                      <strong>{total.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</strong>
+                    </div>
+                    <div>
+                      <span>Already Used</span>
+                      <strong>{usedValue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</strong>
+                    </div>
+                  </div>
+
+                  <div className="credit-progress-wrap">
+                    <div className="credit-progress-header">
+                      <span>Utilization</span>
+                      <span>{percent}%</span>
+                    </div>
+                    <div className="utilization-track">
+                      <span style={{ width: `${percent}%` }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {!visibleCredits.length && (
+              <EmptyState
+                title={data.length ? "No matching credit records" : "No credit allocations yet"}
+                message={data.length ? "Try clearing your search query or selecting another category." : "Allocate credits to a teammate to start tracking their allowances."}
+                actionLabel={data.length ? "Clear filters" : undefined}
+                onAction={data.length ? () => { setMemberSearch(""); setCategoryFilter("All categories"); } : undefined}
+              />
+            )}
+          </div>
+        )}
+      </section>
+    </>
+  );
 }
 
 function AnnouncementsView({ data, onAdd, onDelete, canManage }) {
@@ -811,7 +1045,7 @@ function SettingsView({ user, darkMode, setDarkMode, connection, onLogout }) {
 function FormModal({ active, form, setForm, onClose, onSubmit, busy, employees, editingEmployee, canChangeRole }) {
   const title = editingEmployee ? "Edit employee" : active === "Employees" ? "Add a teammate" : active === "Leave Management" ? "Request time off" : active === "Credits & Usage" ? "Allocate employee credits" : active === "Announcements" ? "Share a company update" : `Create ${active === "Offboarding" ? "offboarding" : "onboarding"} task`;
   const patch = (key, value) => setForm((current) => ({ ...current, [key]: value }));
-  const field = (label, key, options = {}) => <label className="form-field"><span>{label}{options.required && <i> *</i>}</span><input required={options.required} type={options.type || "text"} min={options.min} max={options.max} value={form[key] ?? ""} placeholder={options.placeholder || ""} disabled={options.disabled} onChange={(event) => patch(key, event.target.value)} /></label>;
+  const field = (label, key, options = {}) => <label className="form-field"><span>{label}{options.required && <i> *</i>}</span><input required={options.required} type={options.type || "text"} min={options.min} max={options.max} step={options.step} value={form[key] ?? ""} placeholder={options.placeholder || ""} disabled={options.disabled} onChange={(event) => patch(key, event.target.value)} /></label>;
   const select = (label, key, options) => <label className="form-field"><span>{label}</span><select value={form[key] ?? ""} onChange={(event) => patch(key, event.target.value)}>{options.map((option) => typeof option === "string" ? <option key={option}>{option}</option> : <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
   const activeEmployees = employees.filter((employee) => employee.status !== "Inactive");
   const employeeOptions = activeEmployees.map((employee) => ({ value: String(employee.id), label: `${employee.full_name} · ${employee.department}` }));
@@ -821,7 +1055,7 @@ function FormModal({ active, form, setForm, onClose, onSubmit, busy, employees, 
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><form className="modal pro-modal" onSubmit={onSubmit}><div className="modal-topline"><span className="modal-icon"><Sparkles size={19} /></span><button className="modal-close" type="button" onClick={onClose} aria-label="Close form"><X size={17} /></button></div><span className="panel-kicker">WORKSPACE ACTION</span><h2>{title}</h2><p className="modal-intro">{editingEmployee ? "Update the employee profile details below." : "Fill in the details to keep your workspace up to date."}</p><div className="modal-fields">
     {active === "Employees" && <>{field("Full name", "full_name", { required: true, placeholder: "e.g. Aditi Sharma" })}{field("Work email", "email", { required: true, type: "email", placeholder: "name@company.com", disabled: Boolean(editingEmployee) })}<div className="form-row">{select("Department", "department", ["Engineering", "Product", "Design", "HR", "Finance", "Marketing", "Operations", "Sales", "Customer Success"])}{field("Job title", "role", { required: true, placeholder: "e.g. Software Engineer" })}</div>{field("Phone (optional)", "phone", { placeholder: "Work phone number" })}{editingEmployee && <div className="form-row">{select("Employee status", "status", canChangeRole ? ["Active", "On Leave", "Inactive"] : ["Active", "On Leave"])}{canChangeRole && select("Access role", "app_role", ["Employee", "HR", "Admin"])}</div>}{!editingEmployee && canChangeRole && select("Access role", "app_role", ["Employee", "HR", "Admin"])}</>}
     {active === "Leave Management" && <>{select("Leave type", "leave_type", ["Casual Leave", "Sick Leave", "Earned Leave", "Unpaid Leave", "Work From Home"])}<div className="form-row">{field("Start date", "start_date", { required: true, type: "date" })}{field("End date", "end_date", { required: true, type: "date", min: form.start_date || undefined })}</div><label className="form-field"><span>Reason (optional)</span><textarea value={form.reason ?? ""} placeholder="Add a little context for your manager…" rows={3} onChange={(event) => patch("reason", event.target.value)} /></label></>}
-    {active === "Credits & Usage" && <><label className="form-field"><span>Search and select member <i>*</i></span><input required list="credit-member-options" value={creditMemberValue} placeholder="Type member name or email…" onChange={(event) => { const value = event.target.value; setCreditMemberQuery(value); const match = activeEmployees.find((employee) => `${employee.full_name} · ${employee.email || employee.department || ""}` === value || employee.full_name === value || employee.email === value); patch("employee_id", match ? String(match.id) : ""); }} /><datalist id="credit-member-options">{activeEmployees.flatMap((employee) => [`${employee.full_name} · ${employee.email || employee.department || ""}`, employee.email].filter(Boolean).map((label) => <option key={`${employee.id}-${label}`} value={label} />))}</datalist></label>{select("Credit category", "category", ["Learning", "Wellness", "Travel", "Home Office", "Recognition", "Other"])}<div className="form-row">{field("Credits to allocate", "allocated_credits", { required: true, type: "number", min: "0.01" })}{field("Credits already used", "used_credits", { required: true, type: "number", min: "0" })}</div><p className="modal-note">Choose an active member, then enter the allocation. Existing allocations remain visible in Credits & Usage.</p></>}
+    {active === "Credits & Usage" && <><label className="form-field"><span>Search and select member <i>*</i></span><input required list="credit-member-options" value={creditMemberValue} placeholder="Type member name or email…" onChange={(event) => { const value = event.target.value; setCreditMemberQuery(value); const match = activeEmployees.find((employee) => `${employee.full_name} · ${employee.email || employee.department || ""}` === value || employee.full_name === value || employee.email === value); patch("employee_id", match ? String(match.id) : ""); }} /><datalist id="credit-member-options">{activeEmployees.flatMap((employee) => [`${employee.full_name} · ${employee.email || employee.department || ""}`, employee.email].filter(Boolean).map((label) => <option key={`${employee.id}-${label}`} value={label} />))}</datalist></label>{select("Credit category", "category", ["Learning", "Wellness", "Travel", "Home Office", "Recognition", "Other"])}<div className="form-row">{field("Credits to allocate", "allocated_credits", { required: true, type: "number", min: "1", step: "1", placeholder: "e.g. 500" })}{field("Credits already used", "used_credits", { required: true, type: "number", min: "0", step: "1", placeholder: "e.g. 0" })}</div><p className="modal-note">Choose an active member, then enter the allocation. Existing allocations remain visible in Credits & Usage.</p></>}
     {active === "Announcements" && <>{field("Announcement title", "title", { required: true, placeholder: "What should the team know?" })}<label className="form-field"><span>Message</span><textarea required value={form.body ?? ""} placeholder="Share the details with your team…" rows={5} onChange={(event) => patch("body", event.target.value)} /></label><label className="checkbox-field"><input type="checkbox" checked={Boolean(form.published)} onChange={(event) => patch("published", event.target.checked)} /><span>Publish this announcement immediately</span></label></>}
     {(active === "Onboarding" || active === "Offboarding") && <>{select("Employee", "employee_id", employeeOptions)}{field("Task title", "title", { required: true, placeholder: "e.g. Complete security training" })}<label className="form-field"><span>Description (optional)</span><textarea value={form.description ?? ""} placeholder="What needs to be completed?" rows={3} onChange={(event) => patch("description", event.target.value)} /></label>{select("Task owner", "owner_id", [{ value: "", label: "Unassigned" }, ...employeeOptions])}<div className="form-row">{field("Due date", "due_date", { type: "date" })}{select("Status", "status", ["Pending", "In Progress", "Completed", "Blocked"])}</div></>}</div>
     <div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>Cancel</button><button className="primary-button" disabled={busy}>{busy ? <><RefreshCw size={14} className="spin" /> Saving…</> : <><Check size={15} /> {editingEmployee ? "Save changes" : "Save to workspace"}</>}</button></div><p className="modal-note"><ShieldCheck size={13} /> Your changes are validated before they are saved.</p></form></div>;
